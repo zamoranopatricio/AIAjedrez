@@ -3,3 +3,4 @@ python-chess>=1.999
 python-dotenv>=1.0.0
 requests>=2.31.0
 cairosvg>=2.7.0
+pyinstaller>=6.0.0
