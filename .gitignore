@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Variables de entorno (contiene rutas locales / secretos)
+.env
+
+# Partidas guardadas (datos personales)
+saves/*.pgn
+
+# Assets descargados automáticamente (no es código fuente)
+assets/pieces/
+
+# Stockfish binario local (si alguien lo pone en bin/)
+bin/stockfish*
+bin/*.exe
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*~
+
+# Sistema
+.DS_Store
+Thumbs.db
