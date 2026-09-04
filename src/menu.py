@@ -18,6 +18,7 @@ class MenuResult:
     mode: GameMode
     human_color: chess.Color
     difficulty_index: int
+    show_ai_indicator: bool = True
 
 
 class _Button:
@@ -52,9 +53,10 @@ class MenuScreen:
         self.screen = screen
         self.clock  = pygame.time.Clock()
 
-        self._mode       = GameMode.HUMAN_VS_AI
-        self._color      = chess.WHITE
-        self._diff_index = 2
+        self._mode         = GameMode.HUMAN_VS_AI
+        self._color        = chess.WHITE
+        self._diff_index   = 2
+        self._ai_indicator = True
 
         self._build_buttons()
 
@@ -103,8 +105,12 @@ class MenuScreen:
             rect = pygame.Rect(d_start + i * (d_btn_w + 6), 420, d_btn_w, 44)
             self._btn_diffs.append(_Button(rect, d["name"], font=fm.small(bold=False)))
 
+        # Selector Indicador IA (Activado / Desactivado)
+        self._btn_ind_on  = _Button(pygame.Rect(cx - 145, 510, 140, 44), "ON (Activo)")
+        self._btn_ind_off = _Button(pygame.Rect(cx + 5,   510, 140, 44), "OFF (Oculto)")
+
         self._btn_play = _Button(
-            pygame.Rect(cx - 125, H - 120, 250, 58), "JUGAR",
+            pygame.Rect(cx - 125, H - 110, 250, 56), "JUGAR",
             font=fm.large(bold=True))
 
     # ── Clics ──────────────────────────────────────────────────────────────
@@ -118,11 +124,16 @@ class MenuScreen:
             self._color = chess.WHITE
         elif self._btn_black.is_hovered(pos):
             self._color = chess.BLACK
+        elif self._btn_ind_on.is_hovered(pos):
+            self._ai_indicator = True
+        elif self._btn_ind_off.is_hovered(pos):
+            self._ai_indicator = False
         elif self._btn_play.is_hovered(pos):
             return MenuResult(
                 mode=self._mode,
                 human_color=self._color,
                 difficulty_index=self._diff_index,
+                show_ai_indicator=self._ai_indicator,
             )
         else:
             for i, btn in enumerate(self._btn_diffs):
@@ -147,23 +158,23 @@ class MenuScreen:
 
         # Título
         t = fm.title().render("AI Ajedrez", True, cfg.C_TEXT)
-        self.screen.blit(t, t.get_rect(center=(cx, 90)))
+        self.screen.blit(t, t.get_rect(center=(cx, 80)))
         t2 = fm.normal().render(
             "Entorno local de ajedrez con análisis Stockfish en tiempo real",
             True, cfg.C_TEXT_DIM)
-        self.screen.blit(t2, t2.get_rect(center=(cx, 138)))
+        self.screen.blit(t2, t2.get_rect(center=(cx, 125)))
 
         # Separador decorativo
-        pygame.draw.line(self.screen, cfg.C_PANEL_BORDER, (cx - 200, 160), (cx + 200, 160), 1)
+        pygame.draw.line(self.screen, cfg.C_PANEL_BORDER, (cx - 200, 148), (cx + 200, 148), 1)
 
         # Modo de juego
-        self._label("MODO DE JUEGO", cx, 192)
+        self._label("MODO DE JUEGO", cx, 175)
         self._btn_hvai.selected = self._mode == GameMode.HUMAN_VS_AI
         self._btn_hvh.selected  = self._mode == GameMode.HUMAN_VS_HUMAN
         self._btn_hvai.draw(self.screen, self._btn_hvai.is_hovered(mp))
         self._btn_hvh.draw(self.screen,  self._btn_hvh.is_hovered(mp))
 
-        y_next = 290  # Y base para las secciones siguientes
+        y_next = 270  # Y base para las secciones siguientes
 
         # Color (solo H vs IA)
         if self._mode == GameMode.HUMAN_VS_AI:
@@ -174,19 +185,28 @@ class MenuScreen:
             self._btn_black.selected = self._color == chess.BLACK
             self._btn_white.draw(self.screen, self._btn_white.is_hovered(mp))
             self._btn_black.draw(self.screen, self._btn_black.is_hovered(mp))
-            y_next += 86
+            y_next += 80
 
         # Dificultad (solo H vs IA)
         if self._mode == GameMode.HUMAN_VS_AI:
-            self._label("DIFICULTAD", cx, y_next)
+            self._label("DIFICULTAD DE LA IA", cx, y_next)
             for i, btn in enumerate(self._btn_diffs):
                 btn.rect.y = y_next + 18
                 btn.selected = (i == self._diff_index)
                 btn.draw(self.screen, btn.is_hovered(mp))
-            y_next += 80
+            y_next += 76
+
+        # Indicador IA (para ambos modos: H vs IA y H vs H)
+        self._label("INDICADOR DE IA (EVALUACIÓN Y FLECHA)", cx, y_next)
+        self._btn_ind_on.rect.y  = y_next + 18
+        self._btn_ind_off.rect.y = y_next + 18
+        self._btn_ind_on.selected  = self._ai_indicator
+        self._btn_ind_off.selected = not self._ai_indicator
+        self._btn_ind_on.draw(self.screen, self._btn_ind_on.is_hovered(mp))
+        self._btn_ind_off.draw(self.screen, self._btn_ind_off.is_hovered(mp))
 
         # Botón Jugar
-        self._btn_play.rect.y = H - 120
+        self._btn_play.rect.y = H - 110
         self._draw_play_btn(mp)
 
         # Estado Stockfish
@@ -195,7 +215,7 @@ class MenuScreen:
         sf_text = ("Stockfish detectado" if ok
                    else "Stockfish no encontrado — instala: sudo apt install stockfish")
         t = fm.small().render(sf_text, True, sf_col)
-        self.screen.blit(t, t.get_rect(center=(cx, H - 40)))
+        self.screen.blit(t, t.get_rect(center=(cx, H - 32)))
 
     def _draw_play_btn(self, mp):
         r    = self._btn_play.rect

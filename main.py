@@ -83,6 +83,7 @@ class ChessApp:
         # Estado de juego (se inicializará en cada partida)
         self.state: GameState | None = None
         self.gui:   BoardGUI  | None = None
+        self.show_ai_indicator: bool = True
 
         # Variables de interacción
         self._dragging_piece: chess.Piece | None = None
@@ -112,6 +113,7 @@ class ChessApp:
         from src.menu import MenuResult  # evitar import circular
         diff   = cfg.DIFFICULTY_LEVELS[result.difficulty_index]
         self.state = GameState(mode=result.mode, human_color=result.human_color)
+        self.show_ai_indicator = result.show_ai_indicator
         self.gui   = BoardGUI(
             screen=self.screen,
             piece_images=self.piece_images,
@@ -129,8 +131,8 @@ class ChessApp:
         self._last_fen        = ""
 
         log.info(
-            "Partida iniciada — Modo: %s | Dificultad: %s",
-            result.mode.name, diff["name"]
+            "Partida iniciada — Modo: %s | Dificultad: %s | Indicador IA: %s",
+            result.mode.name, diff["name"], "ON" if self.show_ai_indicator else "OFF"
         )
 
     # ── Loop de partida ────────────────────────────────────────────────────
@@ -180,6 +182,7 @@ class ChessApp:
                 san_history=self.state.san_history,
                 mode_label=self._mode_label(),
                 engine_available=self.engine.is_available(),
+                show_ai_indicator=self.show_ai_indicator,
                 mouse_pos=mouse_pos,
             )
 
@@ -202,6 +205,10 @@ class ChessApp:
             g.flipped = not g.flipped
             self.state.deselect()
             return "flip"
+
+        if g.btn_toggle_indicator.collidepoint(pos):
+            self.show_ai_indicator = not self.show_ai_indicator
+            return "toggle_indicator"
 
         if g.btn_undo.collidepoint(pos):
             double = (self.state.mode == GameMode.HUMAN_VS_AI)
@@ -345,6 +352,9 @@ class ChessApp:
         if key == pygame.K_f:
             self.gui.flipped = not self.gui.flipped
             self.state.deselect()
+        if key == pygame.K_i:
+            self.show_ai_indicator = not self.show_ai_indicator
+            log.info("Indicador IA: %s", "ON" if self.show_ai_indicator else "OFF")
         if key == pygame.K_z:
             # Deshacer: en H vs IA popé dos jugadas (IA + humano)
             double = (self.state.mode == GameMode.HUMAN_VS_AI)

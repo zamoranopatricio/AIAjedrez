@@ -107,16 +107,17 @@ class BoardGUI:
 
         pygame.font.init()
         # Rects de botones de acción (actualizados en cada frame)
-        self.flip_btn_rect    : pygame.Rect = pygame.Rect(0, 0, 0, 0)
-        self.btn_undo         : pygame.Rect = pygame.Rect(0, 0, 0, 0)
-        self.btn_save         : pygame.Rect = pygame.Rect(0, 0, 0, 0)
-        self.btn_restart      : pygame.Rect = pygame.Rect(0, 0, 0, 0)
-        self.btn_analysis     : pygame.Rect = pygame.Rect(0, 0, 0, 0)
-        self.btn_menu         : pygame.Rect = pygame.Rect(0, 0, 0, 0)
+        self.flip_btn_rect        : pygame.Rect = pygame.Rect(0, 0, 0, 0)
+        self.btn_toggle_indicator : pygame.Rect = pygame.Rect(0, 0, 0, 0)
+        self.btn_undo             : pygame.Rect = pygame.Rect(0, 0, 0, 0)
+        self.btn_save             : pygame.Rect = pygame.Rect(0, 0, 0, 0)
+        self.btn_restart          : pygame.Rect = pygame.Rect(0, 0, 0, 0)
+        self.btn_analysis         : pygame.Rect = pygame.Rect(0, 0, 0, 0)
+        self.btn_menu             : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         # Botones del overlay de fin de partida
-        self.go_btn_restart   : pygame.Rect = pygame.Rect(0, 0, 0, 0)
-        self.go_btn_analysis  : pygame.Rect = pygame.Rect(0, 0, 0, 0)
-        self.go_btn_menu      : pygame.Rect = pygame.Rect(0, 0, 0, 0)
+        self.go_btn_restart       : pygame.Rect = pygame.Rect(0, 0, 0, 0)
+        self.go_btn_analysis      : pygame.Rect = pygame.Rect(0, 0, 0, 0)
+        self.go_btn_menu          : pygame.Rect = pygame.Rect(0, 0, 0, 0)
 
         # Superficie con alpha del tamaño completo de la ventana.
         # Se blitta en (0, 0) para que los rects en coordenadas de pantalla
@@ -140,15 +141,17 @@ class BoardGUI:
         san_history: list[str],
         mode_label: str,
         engine_available: bool,
+        show_ai_indicator: bool = True,
         mouse_pos: tuple[int, int] = (0, 0),
     ):
         self.screen.fill(cfg.C_BG)
         self._draw_board_squares(board, selected_square, legal_targets, last_move)
-        self._draw_arrow_overlay(best_move, board)
+        if show_ai_indicator:
+            self._draw_arrow_overlay(best_move, board)
         self._draw_pieces(board, selected_square if dragging_piece else None, dragging_piece, drag_pos)
         self._draw_coordinates()
-        self._draw_eval_bar(score, board)
-        self._draw_side_panel(board, san_history, mode_label, engine_available, score, mouse_pos)
+        self._draw_eval_bar(score, board, show_ai_indicator)
+        self._draw_side_panel(board, san_history, mode_label, engine_available, score, show_ai_indicator, mouse_pos)
 
     def draw_game_over(self, result_text: str, mouse_pos: tuple = (0, 0)):
         """Overlay semitransparente de fin de partida con botones clickeables."""
@@ -309,14 +312,22 @@ class BoardGUI:
 
     # ── Barra de evaluación ────────────────────────────────────────────────
 
-    def _draw_eval_bar(self, score, board: chess.Board):
+    def _draw_eval_bar(self, score, board: chess.Board, show_ai_indicator: bool = True):
         bx = cfg.EVAL_BAR_X
         by = cfg.EVAL_BAR_Y
         bw = cfg.EVAL_BAR_WIDTH
         bh = cfg.EVAL_BAR_HEIGHT
 
-        # Fondo negro
+        # Fondo
         pygame.draw.rect(self.screen, cfg.C_EVAL_BLACK, (bx, by, bw, bh))
+
+        if not show_ai_indicator:
+            # Indicador oculto: barra neutra
+            pygame.draw.rect(self.screen, (50, 50, 70), (bx, by, bw, bh))
+            pygame.draw.rect(self.screen, cfg.C_EVAL_BORDER, (bx, by, bw, bh), 1)
+            t = fm.small().render("OFF", True, cfg.C_TEXT_DIM)
+            self.screen.blit(t, t.get_rect(center=(bx + bw // 2, by + bh + 14)))
+            return
 
         # Calcular fracción blanca [0.0, 1.0]
         white_frac = 0.5
@@ -356,6 +367,7 @@ class BoardGUI:
         mode_label: str,
         engine_available: bool,
         score,
+        show_ai_indicator: bool = True,
         mouse_pos: tuple[int, int] = (0, 0),
     ):
         px = cfg.PANEL_X
@@ -392,19 +404,23 @@ class BoardGUI:
         if engine_available:
             t = fm.small(bold=True).render("EVALUACIÓN IA", True, cfg.C_TEXT_DIM)
             self.screen.blit(t, (px + pad, y)); y += 20
-            if score is not None:
-                try:
-                    if score.is_mate():
-                        m = score.mate()
-                        ev_text = f"Mate en {abs(m)}" + (" (Blancas)" if m > 0 else " (Negras)")
-                    else:
-                        cp = score.score()
-                        ev_text = f"{cp/100:+.2f}  ({'↑ Blancas' if cp > 0 else '↓ Negras' if cp < 0 else 'Igual'})"
-                except Exception:
-                    ev_text = "—"
+
+            if show_ai_indicator:
+                if score is not None:
+                    try:
+                        if score.is_mate():
+                            m = score.mate()
+                            ev_text = f"Mate en {abs(m)}" + (" (Blancas)" if m > 0 else " (Negras)")
+                        else:
+                            cp = score.score()
+                            ev_text = f"{cp/100:+.2f}  ({'↑ Blancas' if cp > 0 else '↓ Negras' if cp < 0 else 'Igual'})"
+                    except Exception:
+                        ev_text = "—"
+                else:
+                    ev_text = "Calculando…"
+                t = fm.normal().render(ev_text, True, cfg.C_TEXT_ACCENT)
             else:
-                ev_text = "Calculando…"
-            t = fm.normal().render(ev_text, True, cfg.C_TEXT_ACCENT)
+                t = fm.normal().render("Oculta (Indicador OFF)", True, cfg.C_TEXT_DIM)
             self.screen.blit(t, (px + pad, y)); y += 28
         else:
             t = fm.normal().render("⚙ Stockfish no disponible", True, (180, 80, 80))
@@ -430,30 +446,39 @@ class BoardGUI:
             self.screen.blit(t, (px + pad, y))
             y += 18
 
-        # Botón Voltear (ancho completo)
         btn_start_y = py + ph - FOOTER_H
         flip_w = pw - pad * 2
-        flip_rect = pygame.Rect(px + pad, btn_start_y, flip_w, 32)
-        self.flip_btn_rect = flip_rect
+        col_w  = (flip_w - 6) // 2
+
+        # Fila 1: Voltear Tablero + Toggle Indicador IA
+        self.flip_btn_rect = pygame.Rect(px + pad, btn_start_y, col_w, 32)
+        self.btn_toggle_indicator = pygame.Rect(px + pad + col_w + 6, btn_start_y, col_w, 32)
+
+        # Render Voltear
+        hov_f = self.flip_btn_rect.collidepoint(mouse_pos)
+        pygame.draw.rect(self.screen, cfg.C_BTN_HOVER if hov_f else cfg.C_BTN, self.flip_btn_rect, border_radius=8)
+        pygame.draw.rect(self.screen, cfg.C_ACCENT, self.flip_btn_rect, 1, border_radius=8)
+        txt = fm.small(bold=True).render("Voltear", True, cfg.C_BTN_TEXT)
+        self.screen.blit(txt, txt.get_rect(center=self.flip_btn_rect.center))
+
+        # Render Indicador IA Toggle Button
+        hov_i = self.btn_toggle_indicator.collidepoint(mouse_pos)
+        ind_bg = (30, 110, 60) if show_ai_indicator else (90, 40, 50)
+        ind_bg_draw = tuple(min(255, c + 35) for c in ind_bg) if hov_i else ind_bg
+        pygame.draw.rect(self.screen, ind_bg_draw, self.btn_toggle_indicator, border_radius=8)
+        pygame.draw.rect(self.screen, (100, 160, 255) if show_ai_indicator else (180, 80, 80), self.btn_toggle_indicator, 1, border_radius=8)
+        ind_text = "IA: ON" if show_ai_indicator else "IA: OFF"
+        txt = fm.small(bold=True).render(ind_text, True, cfg.C_BTN_TEXT)
+        self.screen.blit(txt, txt.get_rect(center=self.btn_toggle_indicator.center))
+
         orient_label = "Vista: Negras abajo" if self.flipped else "Vista: Blancas abajo"
-        hov = flip_rect.collidepoint(mouse_pos)
-        pygame.draw.rect(self.screen, cfg.C_BTN_HOVER if hov else cfg.C_BTN,
-                         flip_rect, border_radius=8)
-        pygame.draw.rect(self.screen, cfg.C_ACCENT, flip_rect, 1, border_radius=8)
-        self.screen.blit(
-            fm.small(bold=True).render("Voltear tablero", True, cfg.C_BTN_TEXT),
-            fm.small(bold=True).render("Voltear tablero", True, cfg.C_BTN_TEXT)
-                .get_rect(center=flip_rect.center)
-        )
         t_orient = fm.small().render(orient_label, True, cfg.C_TEXT_DIM)
-        self.screen.blit(t_orient, t_orient.get_rect(
-            center=(px + pw // 2, btn_start_y + 32 + 9)))
+        self.screen.blit(t_orient, t_orient.get_rect(center=(px + pw // 2, btn_start_y + 32 + 9)))
 
         # Cuadrícula 2×2 de botones de acción
         cell_y = btn_start_y + 52
         cell_h = 32
         cell_gap = 6
-        col_w = (flip_w - cell_gap) // 2
 
         action_defs = [
             ("btn_undo",     "Deshacer",  (60,  60, 110)),
