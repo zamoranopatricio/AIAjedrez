@@ -49,38 +49,55 @@ def pixel_to_square(px: int, py: int, flipped: bool = False) -> Optional[int]:
 
 # ── Dibujo de flecha ────────────────────────────────────────────────────────
 
-def _draw_arrow(surface: pygame.Surface, color: tuple, start: tuple, end: tuple, width: int = 10):
-    """Dibuja una flecha gruesa con punta de flecha."""
+def _draw_arrow(surface: pygame.Surface, start: tuple, end: tuple):
+    """
+    Dibuja una flecha vectorizada elegante de 7 vértices estilo Lichess/Chess.com.
+    Combina un cuerpo rectilíneo con una punta triangular afilada y borde sutil.
+    """
     dx = end[0] - start[0]
     dy = end[1] - start[1]
     length = math.hypot(dx, dy)
     if length < 1:
         return
 
-    # Acortar el inicio y el final para que no tape las piezas
-    pad_start = cfg.SQUARE_SIZE * 0.28
-    pad_end   = cfg.SQUARE_SIZE * 0.28
     ux, uy = dx / length, dy / length
+    px, py = -uy, ux   # Vector perpendicular (rotación de 90°)
+
+    sq = cfg.SQUARE_SIZE
+    pad_start   = sq * 0.24
+    pad_end     = sq * 0.16
+    head_length = sq * 0.38
+    stem_width  = sq * 0.18
+    head_width  = sq * 0.42
+
     sx = start[0] + ux * pad_start
     sy = start[1] + uy * pad_start
-    ex = end[0]   - ux * pad_end
-    ey = end[1]   - uy * pad_end
 
-    arrow_length = cfg.SQUARE_SIZE * 0.42
-    arrow_width  = width * 2.2
+    tip_x = end[0] - ux * pad_end
+    tip_y = end[1] - uy * pad_end
 
-    # Cuerpo de la flecha
-    pygame.draw.line(surface, color, (int(sx), int(sy)), (int(ex), int(ey)), width)
+    base_x = tip_x - ux * head_length
+    base_y = tip_y - uy * head_length
 
-    # Punta de flecha (triángulo)
-    tip = (ex, ey)
-    base_cx = ex - ux * arrow_length
-    base_cy = ey - uy * arrow_length
-    perp_x = -uy * arrow_width / 2
-    perp_y  =  ux * arrow_width / 2
-    p1 = (int(base_cx + perp_x), int(base_cy + perp_y))
-    p2 = (int(base_cx - perp_x), int(base_cy - perp_y))
-    pygame.draw.polygon(surface, color, [tip, p1, p2])
+    # 7 vértices del polígono estilizado
+    pts = [
+        (sx + px * (stem_width / 2), sy + py * (stem_width / 2)),
+        (base_x + px * (stem_width / 2), base_y + py * (stem_width / 2)),
+        (base_x + px * (head_width / 2), base_y + py * (head_width / 2)),
+        (tip_x, tip_y),
+        (base_x - px * (head_width / 2), base_y - py * (head_width / 2)),
+        (base_x - px * (stem_width / 2), base_y - py * (stem_width / 2)),
+        (sx - px * (stem_width / 2), sy - py * (stem_width / 2)),
+    ]
+
+    fill_col    = getattr(cfg, "C_ARROW_FILL", (255, 170, 0, 200))
+    outline_col = getattr(cfg, "C_ARROW_OUTLINE", (180, 90, 0, 255))
+
+    int_pts = [(int(x), int(y)) for x, y in pts]
+
+    # Dibujar relleno poligonal + contorno afilado sin solapamiento
+    pygame.draw.polygon(surface, fill_col, int_pts)
+    pygame.draw.polygon(surface, outline_col, int_pts, width=2)
 
 
 # ── Clase principal ────────────────────────────────────────────────────────
@@ -287,10 +304,7 @@ class BoardGUI:
 
         # Dibujar sobre superficie con alpha
         arrow_surf = pygame.Surface((cfg.WINDOW_WIDTH, cfg.WINDOW_HEIGHT), pygame.SRCALPHA)
-        outline_col = (*cfg.C_ARROW_OUTLINE[:3], 255)
-        fill_col    = (*cfg.C_ARROW_FILL[:3], 185)
-        _draw_arrow(arrow_surf, outline_col, start, end, width=13)
-        _draw_arrow(arrow_surf, fill_col,    start, end, width=9)
+        _draw_arrow(arrow_surf, start, end)
         self.screen.blit(arrow_surf, (0, 0))
 
     # ── Coordenadas ────────────────────────────────────────────────────────
