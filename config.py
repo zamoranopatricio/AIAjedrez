@@ -8,7 +8,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BASE_DIR = Path(__file__).parent
+from src.platform_utils import get_base_dir, find_stockfish_binary
+
+BASE_DIR = get_base_dir()
 
 # ── Ventana ────────────────────────────────────────────────────────────────
 WINDOW_WIDTH  = 1100
@@ -69,17 +71,7 @@ C_SELECTED      = (60,  130, 255)
 C_SELECTED_BG   = (30,  60, 130)
 
 # ── Stockfish ──────────────────────────────────────────────────────────────
-_sf_candidates = [
-    os.getenv("STOCKFISH_PATH", ""),
-    "/usr/games/stockfish",
-    "/usr/bin/stockfish",
-    "/usr/local/bin/stockfish",
-    str(BASE_DIR / "bin" / "stockfish"),
-]
-STOCKFISH_PATH = next(
-    (p for p in _sf_candidates if p and Path(p).is_file()),
-    "stockfish",
-)
+STOCKFISH_PATH = find_stockfish_binary(BASE_DIR)
 
 # ── Análisis ───────────────────────────────────────────────────────────────
 ANALYSIS_TIME_S = 0.15   # segundos por análisis en background

@@ -23,14 +23,14 @@ BY   = 68                          # y del tablero
 PX   = BX + BSZ + 18               # x del panel derecho
 PW   = cfg.WINDOW_WIDTH - PX - 10  # ancho del panel derecho
 
-# Colores de rating  (sin emojis — pygame no los renderiza con fuentes del sistema)
+# Colores de rating (armónicos, tonos oscuros elegantes y legibles)
 RATING_META = [
     # (delta_max, rating, color_bg,       color_text,       badge, label)
-    (20,   5, (0,  160,  80), (200, 255, 210), "[5]", "Excelente"),
-    (50,   4, (0,  120, 200), (180, 220, 255), "[4]", "Bueno"),
-    (100,  3, (160,140,  0),  (255, 240, 150), "[3]", "Imprecision"),
-    (200,  2, (200, 90,  0),  (255, 210, 160), "[2]", "Error"),
-    (9999, 1, (180,  0,  0),  (255, 180, 160), "[1]", "Error grave"),
+    (20,   5, (20, 120,  70), (220, 255, 230), "[5]", "Excelente"),
+    (50,   4, (30, 100, 150), (210, 235, 255), "[4]", "Bueno"),
+    (100,  3, (140, 110,  20), (255, 245, 200), "[3]", "Imprecision"),
+    (200,  2, (150,  70,  20), (255, 225, 200), "[2]", "Error"),
+    (9999, 1, (150,  35,  35), (255, 205, 205), "[1]", "Error grave"),
 ]
 
 
@@ -204,9 +204,9 @@ class AnalysisScreen:
         self._list_top      = BY + 10
         self._list_visible  = 10       # aprox. cuántos caben
 
-        # Botones de navegación
-        nav_y = BY + BSZ + 12
-        bw, bh = 72, 32
+        # Botones de navegación (ubicados debajo de las coordenadas a-h)
+        nav_y = BY + BSZ + 38
+        bw, bh = 72, 34
         self._btn_first = pygame.Rect(BX,          nav_y, bw, bh)
         self._btn_prev  = pygame.Rect(BX + bw + 6, nav_y, bw, bh)
         self._btn_next  = pygame.Rect(BX + (bw+6)*2, nav_y, bw, bh)
@@ -397,13 +397,13 @@ class AnalysisScreen:
             t = fm.normal(bold=True).render(label, True, cfg.C_TEXT)
             self.screen.blit(t, t.get_rect(center=rect.center))
 
-        nav_y = BY + BSZ + 12
+        nav_y = self._btn_first.y
         move_n = d.idx + 1
         info_t = fm.small().render(
             f"Jugada {move_n} / {len(self.data)}  —  "
             f"{'Blancas' if d.color == chess.WHITE else 'Negras'}",
-            True, cfg.C_TEXT_DIM)
-        self.screen.blit(info_t, (BX + 4 * (72 + 6) + 8, nav_y + 8))
+            True, cfg.C_TEXT)
+        self.screen.blit(info_t, (BX + 4 * (72 + 6) + 12, nav_y + 9))
 
         # ── Panel derecho ──────────────────────────────────────────────────
         self._draw_right_panel(d, mp)
@@ -511,23 +511,23 @@ class AnalysisScreen:
             item_r = pygame.Rect(PX + 4, iy, PW - 8, self._list_item_h - 2)
 
             is_sel = (real_i == self.current_idx)
-            bg = (*md.cbg, 180) if is_sel else (*md.cbg, 55)
-            bdr = md.cbg if is_sel else (50, 50, 80)
+            bg = (*md.cbg, 220) if is_sel else (*md.cbg, 95)
+            bdr = (255, 255, 255) if is_sel else md.cbg
 
-            pygame.draw.rect(self.screen, bg, item_r, border_radius=5)
-            pygame.draw.rect(self.screen, bdr, item_r, 1, border_radius=5)
+            pygame.draw.rect(self.screen, bg, item_r, border_radius=6)
+            pygame.draw.rect(self.screen, bdr, item_r, 2 if is_sel else 1, border_radius=6)
 
             move_num = real_i // 2 + 1
             dot = "." if md.color == chess.WHITE else "..."
             label = f"{move_num}{dot} {md.san}"
-            tc = fm.small(bold=is_sel).render(label, True,
-                                               cfg.C_TEXT if is_sel else cfg.C_TEXT_DIM)
-            self.screen.blit(tc, (item_r.x + 8, item_r.y + 9))
+            text_color = (255, 255, 255) if is_sel else (225, 230, 240)
+            tc = fm.normal(bold=is_sel).render(label, True, text_color)
+            self.screen.blit(tc, (item_r.x + 10, item_r.y + 7))
 
             # Badge rating
             badge = fm.small(bold=True).render(f"{md.badge} {md.rating}", True, md.ctxt)
             self.screen.blit(badge, badge.get_rect(
-                right=item_r.right - 6, centery=item_r.centery))
+                right=item_r.right - 8, centery=item_r.centery))
 
         # ── Separador ─────────────────────────────────────────────────────
         sep_y = self._list_top + list_h + 6
