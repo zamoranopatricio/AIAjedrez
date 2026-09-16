@@ -24,13 +24,6 @@ _PIECE_MAP  = {
     chess.KING:   "K",
 }
 
-# Tonos cercanos al set gris/crema de Chess.com. Se aplican sobre los SVG
-# cburnett ya incluidos, por lo que la silueta usada por el importador y la que
-# ve el usuario son la misma.
-_BLACK_BODY = (75, 75, 75)
-_BLACK_OUTLINE = (45, 45, 45)
-_WHITE_OUTLINE = (70, 70, 70)
-
 _LICHESS_BASE = (
     "https://raw.githubusercontent.com/lichess-org/lila/"
     "master/public/piece/cburnett"
@@ -98,35 +91,12 @@ def load_piece_images(assets_dir: Path, size: int = 80) -> dict:
             if path.exists():
                 surf = pygame.image.load(str(path)).convert_alpha()
                 surf = pygame.transform.smoothscale(surf, (size, size))
-                images[piece] = _apply_chess_com_style(surf, color)
+                images[piece] = surf
             else:
                 log.warning("Pieza no encontrada: %s — usando fallback Unicode", name)
                 images[piece] = _make_unicode_surface(piece, size)
 
     return images
-
-
-def _apply_chess_com_style(surface: pygame.Surface, color: chess.Color) -> pygame.Surface:
-    """Aproxima el acabado gris con bordes visibles del set de Chess.com.
-
-    No sustituye la geometría cburnett: así una captura de la aplicación usa
-    exactamente las mismas siluetas que reconoce ``position_import``.
-    """
-    styled = surface.copy()
-    replacement = _BLACK_BODY if color == chess.BLACK else _WHITE_OUTLINE
-
-    for y in range(styled.get_height()):
-        for x in range(styled.get_width()):
-            px = styled.get_at((x, y))
-            if px.a and max(px.r, px.g, px.b) <= 12:
-                styled.set_at((x, y), (*replacement, px.a))
-
-    if color == chess.BLACK:
-        mask = pygame.mask.from_surface(styled, threshold=1)
-        outline = mask.outline()
-        if len(outline) > 1:
-            pygame.draw.lines(styled, _BLACK_OUTLINE, True, outline, 1)
-    return styled
 
 
 def _make_unicode_surface(piece: chess.Piece, size: int) -> pygame.Surface:

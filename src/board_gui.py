@@ -229,10 +229,7 @@ class BoardGUI:
             rect = square_to_rect(sq, self.flipped)
             col  = chess.square_file(sq)
             row  = chess.square_rank(sq)
-            # En un tablero reglamentario a1 es oscuro. El color pertenece a
-            # la casilla lógica; square_to_rect se encarga de rotarla cuando
-            # se muestra la vista de negras.
-            light = (col + row) % 2 == 1
+            light = (col + row) % 2 == 0
 
             # Color base de la casilla
             base = cfg.C_LIGHT_SQ if light else cfg.C_DARK_SQ
@@ -318,7 +315,7 @@ class BoardGUI:
             rank = screen_row if self.flipped else 7 - screen_row
             square = chess.square(7 if self.flipped else 0, rank)
             rect = square_to_rect(square, self.flipped)
-            light = (chess.square_file(square) + chess.square_rank(square)) % 2 == 1
+            light = (chess.square_file(square) + chess.square_rank(square)) % 2 == 0
             color = cfg.C_DARK_SQ if light else cfg.C_LIGHT_SQ
             label = fm.small(bold=True).render(str(rank + 1), True, color)
             self.screen.blit(label, (rect.x + 4, rect.y + 2))
@@ -327,7 +324,7 @@ class BoardGUI:
             file_ = 7 - screen_col if self.flipped else screen_col
             square = chess.square(file_, 7 if self.flipped else 0)
             rect = square_to_rect(square, self.flipped)
-            light = (chess.square_file(square) + chess.square_rank(square)) % 2 == 1
+            light = (chess.square_file(square) + chess.square_rank(square)) % 2 == 0
             color = cfg.C_DARK_SQ if light else cfg.C_LIGHT_SQ
             label = fm.small(bold=True).render(chess.FILE_NAMES[file_], True, color)
             self.screen.blit(label, label.get_rect(bottomright=(rect.right - 4, rect.bottom - 2)))
