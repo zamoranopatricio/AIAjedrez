@@ -89,13 +89,5 @@ echo.
 echo Iniciando el juego...
 %PYTHON_CMD% main.py
 set "APP_EXIT=!errorlevel!"
-
-if not "!APP_EXIT!"=="0" (
-    echo.
-    echo [ERROR] AI Ajedrez no pudo iniciarse.
-    echo Codigo de salida: !APP_EXIT!
-    echo Revisa el detalle mostrado arriba. Esta ventana permanecera abierta.
-)
-
 pause
 exit /b !APP_EXIT!
