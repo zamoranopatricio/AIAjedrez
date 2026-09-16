@@ -39,10 +39,8 @@ class GameState:
         self,
         mode: GameMode = GameMode.HUMAN_VS_HUMAN,
         human_color: chess.Color = chess.WHITE,
-        initial_fen: str | None = None,
     ):
-        self._initial_fen = initial_fen
-        self.board = chess.Board(initial_fen) if initial_fen else chess.Board()
+        self.board = chess.Board()
         self.mode = mode
         self.human_color = human_color
 
@@ -145,7 +143,7 @@ class GameState:
             self.mode = mode
         if human_color is not None:
             self.human_color = human_color
-        self.board = chess.Board(self._initial_fen) if self._initial_fen else chess.Board()
+        self.board = chess.Board()
         self.selected_square = None
         self.legal_targets = []
         self.drag_from = None

@@ -1,13 +1,12 @@
 # AIAjedrez
 
-Entorno local completo para jugar ajedrez contra la computadora o en modo Humano vs Humano, con análisis de IA integrado mediante Stockfish. Funciona **100% sin internet** — sin APIs externas ni servicios en la nube. Puedes abrir y jugar **Humano vs Humano sin instalar Stockfish**; el motor solo es necesario para jugar contra la IA, la evaluación y el análisis post-partida.
+Entorno local completo para jugar ajedrez contra la computadora o en modo Humano vs Humano, con análisis de IA integrado mediante Stockfish. Funciona **100% sin internet** — sin APIs externas, sin servicios en la nube.
 
 ---
 
 ## Características
 
 - **Dos modos de juego** — Humano vs IA o Humano vs Humano, seleccionables desde el menú
-- **Importar una posición desde una captura** — Pega (`Ctrl+V`) una imagen del tablero en el menú, confirma si mueven Blancas o Negras y comienza desde esa posición
 - **Selector de color y dificultad** — Elige jugar con Blancas o Negras, y el nivel de la IA (Principiante → Gran Maestro)
 - **Soporte Multiplataforma** — Compatible de forma nativa con **Linux** y **Windows (10/11)**
 - **Interfaz gráfica con Pygame** — Tablero 8×8 con piezas del set *cburnett*, drag & drop y clic para mover
@@ -29,7 +28,7 @@ Entorno local completo para jugar ajedrez contra la computadora o en modo Humano
 | Componente | Versión mínima |
 |---|---|
 | Python | 3.10+ |
-| Stockfish | Opcional. Cualquier versión reciente (`stockfish` en Linux, `stockfish.exe` en Windows); necesario solo para IA y análisis |
+| Stockfish | Cualquier versión reciente (`stockfish` en Linux, `stockfish.exe` en Windows) |
 | Sistema operativo | Linux (Ubuntu, Fedora, Arch, etc.) / Windows 10/11 |
 
 ### Dependencias Python
@@ -44,7 +43,6 @@ python-chess >= 1.999
 python-dotenv >= 1.0.0
 requests >= 2.31.0
 cairosvg >= 2.7.0
-Pillow >= 10.0.0
 pyinstaller >= 6.0.0
 ```
 
@@ -68,8 +66,6 @@ sudo pacman -S stockfish
 1. Descarga el ejecutable desde la web oficial de [Stockfish Download](https://stockfishchess.org/download/).
 2. Descomprime y coloca `stockfish.exe` dentro de la carpeta `bin/` del proyecto.
 3. *Alternativa:* Agrega `stockfish.exe` a tus Variables de Entorno del Sistema (PATH).
-
-Si todavía no instalaste Stockfish, no es un error: abre el juego y elige **Humano vs Humano**. El menú deja el modo contra IA deshabilitado hasta que detecte el motor.
 
 ---
 
@@ -96,7 +92,7 @@ python3 main.py
 ### En Windows
 
 #### Opción A: Ejecución Directa (Doble Clic)
-Simplemente haz **doble clic en `ejecutar_windows.bat`**. El script crea un entorno local `.venv`, instala las dependencias y lanza el juego. No requiere Stockfish para abrirse: si no lo detecta, mostrará un aviso y podrás jugar **Humano vs Humano**.
+Simplemente haz **doble clic en `ejecutar_windows.bat`**. El script verificará tu instalación de Python, instalará las dependencias necesarias y lanzará el juego de forma automática.
 
 #### Opción B: Desde Consola PowerShell / CMD
 ```cmd
@@ -106,16 +102,6 @@ pip install -r requirements.txt
 # 2. Ejecuta el juego
 python main.py
 ```
-
-> Si aparece un aviso sobre Stockfish, no cierres el juego: selecciona **Humano vs Humano**. Para activar el modo contra IA, sigue las instrucciones de [Obtener Stockfish](#obtener-stockfish).
-
-### Importar una posición desde una captura
-
-1. En el apartado **MODO DE JUEGO**, copia una captura al portapapeles y presiona **Pegar captura del tablero** o `Ctrl+V`.
-2. La aplicación detectará las piezas y preguntará de forma explícita **quién mueve**: Blancas o Negras.
-3. Elige el turno y presiona **JUGAR**. La posición se abre sin enviar la imagen a internet.
-
-La detección está diseñada para un tablero **completo, de frente, con Blancas abajo**, casillas verde/crema y piezas estilo **cburnett** (como Chess.com). No interpreta tableros girados, en perspectiva, recortados o con otros temas de piezas. Si el portapapeles no contiene una imagen compatible, el menú explica el problema y puedes seguir jugando normalmente.
 
 #### Opción C: Compilar un ejecutable ejecutable (.exe) autónomo
 Para generar un paquete ejecutable ejecutable autónomo en la carpeta `dist/`:

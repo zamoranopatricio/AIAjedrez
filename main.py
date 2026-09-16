@@ -76,9 +76,8 @@ class ChessApp:
         engine_ok   = self.engine.start()
         if not engine_ok:
             log.warning(
-                "Stockfish no disponible. Humano vs Humano sigue disponible; "
-                "el modo contra IA y el análisis requieren el motor. "
-                "Consulta README.md para instalarlo en tu sistema."
+                "Stockfish no disponible. El análisis IA estará desactivado.\n"
+                "Instala con: sudo apt install stockfish"
             )
 
         # Estado de juego (se inicializará en cada partida)
@@ -104,9 +103,7 @@ class ChessApp:
 
     def run(self):
         while True:
-            result = MenuScreen(
-                self.screen, engine_available=self.engine.is_available()
-            ).run()
+            result = MenuScreen(self.screen).run()
             self._start_game(result)
             self._game_loop()
 
@@ -115,11 +112,7 @@ class ChessApp:
     def _start_game(self, result):
         from src.menu import MenuResult  # evitar import circular
         diff   = cfg.DIFFICULTY_LEVELS[result.difficulty_index]
-        self.state = GameState(
-            mode=result.mode,
-            human_color=result.human_color,
-            initial_fen=result.initial_fen,
-        )
+        self.state = GameState(mode=result.mode, human_color=result.human_color)
         self.show_ai_indicator = result.show_ai_indicator
         self.gui   = BoardGUI(
             screen=self.screen,
