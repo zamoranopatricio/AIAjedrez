@@ -45,40 +45,6 @@ def test_turn_dialog_can_start_imported_position_with_black_to_move(monkeypatch)
     assert result.initial_fen == f"{PLACEMENT} b - - 0 1"
 
 
-def test_imported_starting_position_keeps_inferred_castling_rights(monkeypatch):
-    import chess
-
-    monkeypatch.setattr("src.menu.import_position_from_clipboard", lambda _: chess.STARTING_BOARD_FEN)
-    menu = MenuScreen(_screen())
-
-    menu._handle_click(menu._btn_import.rect.center)
-    menu._handle_click(menu._btn_orientation_white.rect.center)
-    menu._handle_click(menu._btn_turn_white.rect.center)
-    menu._handle_click(menu._btn_confirm_import.rect.center)
-
-    assert menu._initial_fen() == f"{chess.STARTING_BOARD_FEN} w KQkq - 0 1"
-
-
-def test_imported_position_allows_castling_when_king_and_rook_are_on_starting_squares(monkeypatch):
-    import chess
-    from src.game_state import GameState
-
-    placement = "4k2r/8/8/8/8/8/8/4K2R"
-    monkeypatch.setattr("src.menu.import_position_from_clipboard", lambda _: placement)
-    menu = MenuScreen(_screen())
-
-    menu._handle_click(menu._btn_import.rect.center)
-    menu._handle_click(menu._btn_orientation_white.rect.center)
-    menu._handle_click(menu._btn_turn_white.rect.center)
-    menu._handle_click(menu._btn_confirm_import.rect.center)
-    state = GameState(initial_fen=menu._initial_fen())
-
-    move = state.try_move_drag(chess.E1, chess.G1)
-
-    assert move == chess.Move.from_uci("e1g1")
-    assert state.san_history == ["O-O"]
-
-
 def test_imported_second_queen_is_explained_as_a_promotion_warning(monkeypatch):
     monkeypatch.setattr("src.menu.import_position_from_clipboard", lambda _: PLACEMENT)
     monkeypatch.setattr(

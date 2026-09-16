@@ -125,24 +125,3 @@ def test_check_legality_is_validated_after_the_user_chooses_the_turn():
 
     with pytest.raises(PositionImportError, match="turno elegido"):
         validate_initial_fen(f"{placement} w - - 0 1")
-
-
-def test_infers_castling_rights_from_kings_and_rooks_on_starting_squares():
-    from src.position_import import infer_castling_rights
-
-    assert infer_castling_rights("r3k2r/8/8/8/8/8/8/R3K2R") == "KQkq"
-
-
-def test_does_not_invent_castling_rights_when_a_required_piece_is_absent():
-    from src.position_import import infer_castling_rights
-
-    assert infer_castling_rights("r3k3/8/8/8/8/8/8/4K2R") == "Kq"
-
-
-def test_initial_fen_preserves_known_castling_rights_when_provided():
-    from src.position_import import initial_fen_from_placement
-
-    placement = "r3k2r/8/8/8/8/8/8/R3K2R"
-    assert initial_fen_from_placement(placement, chess.BLACK, castling_rights="Kq") == (
-        f"{placement} b Kq - 0 1"
-    )

@@ -67,40 +67,6 @@ def orient_placement(placement: str, *, white_bottom: bool) -> str:
     return oriented.board_fen()
 
 
-def infer_castling_rights(placement: str) -> str:
-    """Infiere derechos de enroque de una captura a partir de casillas iniciales.
-
-    Una imagen no conserva el historial de rey y torres. Por eso solo se
-    habilita cada flanco cuando ambos ocupan sus casillas de salida; nunca se
-    inventa un derecho si falta una de esas piezas.
-    """
-    board = chess.Board(None)
-    board.set_board_fen(placement)
-
-    rights: list[str] = []
-    for king_square, rook_square, king, rook, right in (
-        (chess.E1, chess.H1, chess.Piece(chess.KING, chess.WHITE), chess.Piece(chess.ROOK, chess.WHITE), "K"),
-        (chess.E1, chess.A1, chess.Piece(chess.KING, chess.WHITE), chess.Piece(chess.ROOK, chess.WHITE), "Q"),
-        (chess.E8, chess.H8, chess.Piece(chess.KING, chess.BLACK), chess.Piece(chess.ROOK, chess.BLACK), "k"),
-        (chess.E8, chess.A8, chess.Piece(chess.KING, chess.BLACK), chess.Piece(chess.ROOK, chess.BLACK), "q"),
-    ):
-        if board.piece_at(king_square) == king and board.piece_at(rook_square) == rook:
-            rights.append(right)
-    return "".join(rights) or "-"
-
-
-def initial_fen_from_placement(
-    placement: str,
-    turn: chess.Color,
-    *,
-    castling_rights: str | None = None,
-) -> str:
-    """Construye una FEN importada, preservando derechos explícitos si existen."""
-    side = "w" if turn == chess.WHITE else "b"
-    rights = infer_castling_rights(placement) if castling_rights is None else castling_rights
-    return f"{placement} {side} {rights} - 0 1"
-
-
 def detect_position_from_image(image: Image.Image, assets_dir: Path) -> str:
     """Reconoce piezas Neo o Cburnett sobre un tablero visto de frente.
 

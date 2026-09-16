@@ -12,7 +12,7 @@ import config as cfg
 from src import font_manager as fm
 from src.board_gui import BoardGUI
 from src.game_state import GameMode, GameState
-from src.position_import import PositionImportError, initial_fen_from_placement, validate_initial_fen
+from src.position_import import PositionImportError, validate_initial_fen
 from src.screen_monitor import MonitorResult, ScreenRegionMonitor, selection_to_desktop_bbox
 from src.screenshot_tracking import ScreenshotTracker
 
@@ -168,7 +168,8 @@ class LiveTrackingScreen:
             return False
         try:
             placement = self.monitor.read_current_placement()
-            initial_fen = initial_fen_from_placement(placement, self._initial_turn)
+            side = "w" if self._initial_turn == chess.WHITE else "b"
+            initial_fen = f"{placement} {side} - - 0 1"
             validate_initial_fen(initial_fen)
         except (PositionImportError, ValueError) as exc:
             self.status_message = str(exc)

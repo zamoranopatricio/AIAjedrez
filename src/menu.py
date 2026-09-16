@@ -15,7 +15,6 @@ from src.asset_loader import load_piece_images
 from src.position_import import (
     PositionImportError,
     import_position_from_clipboard,
-    initial_fen_from_placement,
     orient_placement,
     position_warnings,
     validate_initial_fen,
@@ -361,19 +360,17 @@ class MenuScreen:
         turn = self._import_turn
         side = "Blancas" if turn == chess.WHITE else "Negras"
         placement = orient_placement(self._imported_placement, white_bottom=self._import_white_bottom)
-        initial_fen = initial_fen_from_placement(placement, turn)
+        selected_turn = "w" if turn == chess.WHITE else "b"
         try:
-            validate_initial_fen(initial_fen)
+            validate_initial_fen(f"{placement} {selected_turn} - - 0 1")
         except PositionImportError as exc:
             self._status_message = str(exc)
             self._status_is_error = True
             return
-        self._confirmed_fen = initial_fen
+        self._confirmed_fen = f"{placement} {selected_turn} - - 0 1"
         self._side_dialog_active = False
         self._status_is_error = False
         self._status_message = f"Posición importada. Mueven {side}. Presiona JUGAR para comenzar."
-        if initial_fen.split()[2] != "-":
-            self._status_message += " Enroque inferido por las piezas en casillas iniciales."
         if self._import_warning:
             self._status_message += f" Aviso: {self._import_warning}"
 
