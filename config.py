@@ -38,9 +38,8 @@ EVAL_BAR_HEIGHT = BOARD_SIZE
 
 # ── Paleta de colores ──────────────────────────────────────────────────────
 C_BG               = (14, 14, 26)
-# Paleta verde/crema inspirada en Chess.com.
-C_LIGHT_SQ         = (238, 238, 210)
-C_DARK_SQ          = (118, 150, 86)
+C_LIGHT_SQ         = (240, 217, 181)
+C_DARK_SQ          = (181, 136, 99)
 C_HIGHLIGHT_SEL    = (20,  200,  60, 170)
 C_HIGHLIGHT_LEGAL  = (20,  200,  60,  75)
 C_LAST_MOVE        = (205, 210, 106, 140)

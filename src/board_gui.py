@@ -310,24 +310,19 @@ class BoardGUI:
     # ── Coordenadas ────────────────────────────────────────────────────────
 
     def _draw_coordinates(self):
-        """Dibuja las coordenadas dentro de las esquinas, como en Chess.com."""
-        for screen_row in range(8):
-            rank = screen_row if self.flipped else 7 - screen_row
-            square = chess.square(7 if self.flipped else 0, rank)
-            rect = square_to_rect(square, self.flipped)
-            light = (chess.square_file(square) + chess.square_rank(square)) % 2 == 0
-            color = cfg.C_DARK_SQ if light else cfg.C_LIGHT_SQ
-            label = fm.small(bold=True).render(str(rank + 1), True, color)
-            self.screen.blit(label, (rect.x + 4, rect.y + 2))
-
-        for screen_col in range(8):
-            file_ = 7 - screen_col if self.flipped else screen_col
-            square = chess.square(file_, 7 if self.flipped else 0)
-            rect = square_to_rect(square, self.flipped)
-            light = (chess.square_file(square) + chess.square_rank(square)) % 2 == 0
-            color = cfg.C_DARK_SQ if light else cfg.C_LIGHT_SQ
-            label = fm.small(bold=True).render(chess.FILE_NAMES[file_], True, color)
-            self.screen.blit(label, label.get_rect(bottomright=(rect.right - 4, rect.bottom - 2)))
+        files = "abcdefgh"
+        ranks = "12345678"
+        for i in range(8):
+            fi = i if not self.flipped else 7 - i
+            ri = i if not self.flipped else 7 - i
+            lx = cfg.BOARD_OFFSET_X + i * cfg.SQUARE_SIZE + cfg.SQUARE_SIZE // 2
+            ly = cfg.BOARD_OFFSET_Y + cfg.BOARD_SIZE + 6
+            t  = fm.small().render(files[fi], True, cfg.C_TEXT_DIM)
+            self.screen.blit(t, t.get_rect(center=(lx, ly)))
+            rx = cfg.BOARD_OFFSET_X - 14
+            ry = cfg.BOARD_OFFSET_Y + (7 - i) * cfg.SQUARE_SIZE + cfg.SQUARE_SIZE // 2
+            t2 = fm.small().render(ranks[ri], True, cfg.C_TEXT_DIM)
+            self.screen.blit(t2, t2.get_rect(center=(rx, ry)))
 
     # ── Barra de evaluación ────────────────────────────────────────────────
 
