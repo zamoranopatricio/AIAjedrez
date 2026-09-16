@@ -7,7 +7,7 @@ Entorno local completo para jugar ajedrez contra la computadora o en modo Humano
 ## Características
 
 - **Dos modos de juego** — Humano vs IA o Humano vs Humano, seleccionables desde el menú
-- **Importar una posición desde una captura** — Pega (`Ctrl+V`) una imagen del tablero, confirma su orientación y quién mueve, y revisa el tablero detectado antes de comenzar
+- **Importar una posición desde una captura** — Pega (`Ctrl+V`) una imagen del tablero en el menú, confirma si mueven Blancas o Negras y comienza desde esa posición
 - **Selector de color y dificultad** — Elige jugar con Blancas o Negras, y el nivel de la IA (Principiante → Gran Maestro)
 - **Soporte Multiplataforma** — Compatible de forma nativa con **Linux** y **Windows (10/11)**
 - **Interfaz gráfica con Pygame** — Tablero 8×8 con piezas del set *cburnett*, drag & drop y clic para mover
@@ -112,13 +112,10 @@ python main.py
 ### Importar una posición desde una captura
 
 1. En el apartado **MODO DE JUEGO**, copia una captura al portapapeles y presiona **Pegar captura del tablero** o `Ctrl+V`.
-2. En **Revisar captura**, elige su orientación mirando las coordenadas de la imagen: **Blancas abajo (a1)** si la esquina inferior izquierda es a1, o **Negras abajo (h8)** si es h8. La ubicación actual de reyes o peones no determina la orientación.
-3. Selecciona **quién mueve**: Blancas o Negras. Es independiente de la orientación y del color con el que juegas contra la IA.
-4. Revisa las piezas y coordenadas en la vista previa. Presiona **Confirmar posición** y después **JUGAR**. Ambos selectores son obligatorios; puedes corregirlos si aparece un error, o cancelar con el botón **Cancelar** o `Esc`.
+2. La aplicación detectará las piezas y preguntará de forma explícita **quién mueve**: Blancas o Negras.
+3. Elige el turno y presiona **JUGAR**. La posición se abre sin enviar la imagen a internet.
 
-La partida conserva la vista de la captura; **Voltear** (`F`) cambia únicamente la vista. Las blancas siempre avanzan hacia la fila 8 y las negras hacia la fila 1: con negras abajo, los peones blancos avanzan hacia abajo en pantalla. No se cambian los colores de las piezas al orientar la captura. Como la imagen no permite reconstruir el historial, la posición importada comienza sin derechos de enroque ni captura al paso inicial.
-
-La detección está diseñada para un tablero **completo, de frente, con Blancas o Negras abajo**, casillas verde/crema y piezas derechas estilo **cburnett** (como Chess.com). No interpreta imágenes rotadas con las piezas cabeza abajo, tableros en perspectiva, recortados o con otros temas de piezas. La orientación debe confirmarse manualmente; no se deduce por la distribución de piezas. Si el portapapeles no contiene una imagen compatible, el menú explica el problema y puedes seguir jugando normalmente.
+La detección está diseñada para un tablero **completo, de frente, con Blancas abajo**, casillas verde/crema y piezas estilo **cburnett** (como Chess.com). No interpreta tableros girados, en perspectiva, recortados o con otros temas de piezas. Si el portapapeles no contiene una imagen compatible, el menú explica el problema y puedes seguir jugando normalmente.
 
 #### Opción C: Compilar un ejecutable ejecutable (.exe) autónomo
 Para generar un paquete ejecutable ejecutable autónomo en la carpeta `dist/`:

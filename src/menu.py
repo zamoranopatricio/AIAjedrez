@@ -11,11 +11,9 @@ from typing import Optional
 import config as cfg
 from src.game_state import GameMode
 from src import font_manager as fm
-from src.asset_loader import load_piece_images
 from src.position_import import (
     PositionImportError,
     import_position_from_clipboard,
-    orient_placement,
     position_warnings,
     validate_initial_fen,
 )
@@ -28,7 +26,6 @@ class MenuResult:
     difficulty_index: int
     show_ai_indicator: bool = True
     initial_fen: str | None = None
-    initial_flipped: bool | None = None
 
 
 class _Button:
@@ -73,10 +70,6 @@ class MenuScreen:
         self._diff_index   = 2
         self._ai_indicator = True
         self._imported_placement: str | None = None
-        self._import_white_bottom: bool | None = None
-        self._import_turn: chess.Color | None = None
-        self._confirmed_fen: str | None = None
-        self._preview_images = None
         self._import_warning = ""
         self._side_dialog_active = False
         self._status_message = "Pega una captura de un tablero verde/crema (Ctrl+V)."
@@ -94,7 +87,7 @@ class MenuScreen:
                     pygame.quit(); sys.exit()
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     if self._side_dialog_active:
-                        self._cancel_import()
+                        self._side_dialog_active = False
                     else:
                         pygame.quit(); sys.exit()
                 if (event.type == pygame.KEYDOWN and event.key == pygame.K_v
@@ -127,10 +120,6 @@ class MenuScreen:
 
         self._btn_turn_white = _Button(pygame.Rect(cx - 150, 330, 140, 46), "Mueven Blancas")
         self._btn_turn_black = _Button(pygame.Rect(cx + 10, 330, 140, 46), "Mueven Negras")
-        self._btn_orientation_white = _Button(pygame.Rect(0, 0, 180, 44), "Blancas abajo (a1)")
-        self._btn_orientation_black = _Button(pygame.Rect(0, 0, 180, 44), "Negras abajo (h8)")
-        self._btn_confirm_import = _Button(pygame.Rect(0, 0, 240, 44), "Confirmar posición")
-        self._btn_cancel_import = _Button(pygame.Rect(0, 0, 140, 44), "Cancelar")
 
         self._btn_white = _Button(pygame.Rect(cx - 125, 248, 115, 42), "Blancas")
         self._btn_black = _Button(pygame.Rect(cx + 10,  248, 115, 42), "Negras")
@@ -196,19 +185,9 @@ class MenuScreen:
 
     def _layout_turn_dialog(self):
         W, H = cfg.WINDOW_WIDTH, cfg.WINDOW_HEIGHT
-        self._import_card = pygame.Rect(W // 2 - 470, H // 2 - 285, 940, 570)
-        card = self._import_card
-        self._preview_rect = pygame.Rect(card.x + 30, card.y + 100, 320, 320)
-        self._btn_orientation_white.rect.topleft = (card.x + 400, card.y + 175)
-        self._btn_orientation_black.rect.topleft = (card.x + 590, card.y + 175)
-        self._btn_turn_white.rect.topleft = (card.x + 400, card.y + 300)
-        self._btn_turn_black.rect.topleft = (card.x + 560, card.y + 300)
-        self._btn_confirm_import.rect.bottomright = (card.right - 30, card.bottom - 24)
-        self._btn_cancel_import.rect.bottomleft = (card.x + 30, card.bottom - 24)
-        self._btn_orientation_white.selected = self._import_white_bottom is True
-        self._btn_orientation_black.selected = self._import_white_bottom is False
-        self._btn_turn_white.selected = self._import_turn is chess.WHITE
-        self._btn_turn_black.selected = self._import_turn is chess.BLACK
+        card = pygame.Rect(W // 2 - 270, H // 2 - 105, 540, 210)
+        self._btn_turn_white.rect.center = (card.centerx - 82, card.y + 147)
+        self._btn_turn_black.rect.center = (card.centerx + 82, card.y + 147)
 
     # ── Clics ──────────────────────────────────────────────────────────────
 
@@ -217,18 +196,10 @@ class MenuScreen:
         # clics contra la distribución anterior.
         self._layout_buttons()
         if self._side_dialog_active:
-            if self._btn_orientation_white.is_hovered(pos):
-                self._select_imported_orientation(True)
-            elif self._btn_orientation_black.is_hovered(pos):
-                self._select_imported_orientation(False)
-            elif self._btn_turn_white.is_hovered(pos):
+            if self._btn_turn_white.is_hovered(pos):
                 self._select_imported_turn(chess.WHITE)
             elif self._btn_turn_black.is_hovered(pos):
                 self._select_imported_turn(chess.BLACK)
-            elif self._btn_confirm_import.is_hovered(pos):
-                self._confirm_import()
-            elif self._btn_cancel_import.is_hovered(pos):
-                self._cancel_import()
             self._layout_buttons()
             return None
 
@@ -255,7 +226,6 @@ class MenuScreen:
                 difficulty_index=self._diff_index,
                 show_ai_indicator=self._ai_indicator,
                 initial_fen=self._initial_fen(),
-                initial_flipped=(not self._import_white_bottom if self._initial_fen() else None),
             )
         elif self._mode == GameMode.HUMAN_VS_AI:
             for i, btn in enumerate(self._btn_diffs):
@@ -266,12 +236,10 @@ class MenuScreen:
         return None
 
     def _import_from_clipboard(self):
-        # Nunca reutilizar una captura anterior después de otro intento.
+        # Una captura rechazada nunca debe dejar disponible una posición previa
+        # por accidente: el botón JUGAR debe quedar bloqueado hasta importar una
+        # posición nueva y válida.
         self._imported_placement = None
-        self._confirmed_fen = None
-        self._import_white_bottom = None
-        self._import_turn = None
-        self._side_dialog_active = False
         self._import_warning = ""
         try:
             self._imported_placement = import_position_from_clipboard(cfg.ASSETS_DIR)
@@ -289,39 +257,22 @@ class MenuScreen:
 
         self._side_dialog_active = True
         self._status_is_error = False
-        self._status_message = "Confirma la orientación de la captura. ¿Quién mueve? Revisa la vista previa."
-        self._layout_turn_dialog()
-
-    def _select_imported_orientation(self, white_bottom: bool):
-        self._import_white_bottom = white_bottom
-        self._confirmed_fen = None
-        self._status_is_error = False
-        self._status_message = "Revisa las coordenadas y las piezas de la vista previa antes de confirmar."
+        self._status_message = "Captura detectada. ¿Quién mueve primero?"
 
     def _select_imported_turn(self, turn: chess.Color):
-        self._import_turn = turn
-        self._confirmed_fen = None
-        self._status_is_error = False
-        self._status_message = "Revisa la orientación y el turno antes de confirmar la posición."
-
-    def _confirm_import(self):
         if self._imported_placement is None:
             return
-        if self._import_white_bottom is None or self._import_turn is None:
-            self._status_message = "Selecciona la orientación de la captura y quién mueve."
-            self._status_is_error = True
-            return
-        turn = self._import_turn
         side = "Blancas" if turn == chess.WHITE else "Negras"
-        placement = orient_placement(self._imported_placement, white_bottom=self._import_white_bottom)
+        placement = self._imported_placement.rsplit(" ", 1)[0]
         selected_turn = "w" if turn == chess.WHITE else "b"
         try:
             validate_initial_fen(f"{placement} {selected_turn} - - 0 1")
         except PositionImportError as exc:
+            self._imported_placement = placement
             self._status_message = str(exc)
             self._status_is_error = True
             return
-        self._confirmed_fen = f"{placement} {selected_turn} - - 0 1"
+        self._imported_placement = f"{placement} {selected_turn}"
         self._side_dialog_active = False
         self._status_is_error = False
         self._status_message = f"Posición importada. Mueven {side}. Presiona JUGAR para comenzar."
@@ -329,25 +280,13 @@ class MenuScreen:
             self._status_message += f" Aviso: {self._import_warning}"
 
     def _initial_fen(self) -> str | None:
-        return self._confirmed_fen
-
-    def _cancel_import(self):
-        self._imported_placement = None
-        self._confirmed_fen = None
-        self._import_white_bottom = None
-        self._import_turn = None
-        self._import_warning = ""
-        self._side_dialog_active = False
-        self._status_is_error = False
-        self._status_message = "Importación cancelada. JUGAR comienza una partida normal."
-
-    def _preview_board(self) -> chess.Board:
-        placement = orient_placement(self._imported_placement, white_bottom=self._import_white_bottom is not False)
-        return chess.Board(f"{placement} w - - 0 1")
-
-    def _preview_square(self, col: int, row: int) -> int:
-        square = chess.square(col, 7 - row)
-        return 63 - square if self._import_white_bottom is False else square
+        if self._imported_placement is None:
+            return None
+        # Antes de elegir el turno solo se guarda placement; por tanto nunca
+        # se inicia una partida importada sin responder la pregunta explícita.
+        if self._imported_placement.endswith((" w", " b")):
+            return self._imported_placement + " - - 0 1"
+        return None
 
     # ── Render ─────────────────────────────────────────────────────────────
 
@@ -440,72 +379,18 @@ class MenuScreen:
         self.screen.blit(t, t.get_rect(center=(cx, y)))
 
     def _draw_turn_dialog(self, mp):
-        """Confirma coordenadas y turno sin inferirlos por la ubicación de piezas."""
+        """Pregunta necesaria porque el turno no se puede leer de una imagen."""
         W, H = cfg.WINDOW_WIDTH, cfg.WINDOW_HEIGHT
         self._layout_turn_dialog()
         overlay = pygame.Surface((W, H), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 185))
         self.screen.blit(overlay, (0, 0))
-        card = self._import_card
+        card = pygame.Rect(W // 2 - 270, H // 2 - 105, 540, 210)
         pygame.draw.rect(self.screen, cfg.C_PANEL_BG, card, border_radius=14)
         pygame.draw.rect(self.screen, cfg.C_ACCENT, card, 2, border_radius=14)
-        title = fm.large(bold=True).render("Revisar captura", True, cfg.C_TEXT)
-        self.screen.blit(title, title.get_rect(center=(card.centerx, card.y + 35)))
-        self._label("POSICIÓN DETECTADA", self._preview_rect.centerx, card.y + 78)
-        self._draw_import_preview()
-        x = card.x + 400
-        self._dialog_text("1. Orientación de la captura", x, card.y + 88, 500, bold=True)
-        self._dialog_text("Mira las coordenadas de tu imagen: ¿la esquina inferior izquierda es a1 o h8? No te guíes por dónde están las piezas.", x, card.y + 115, 480)
-        self._dialog_text("2. ¿Quién mueve?", x, card.y + 248, 480, bold=True)
-        self._btn_orientation_white.draw(self.screen, self._btn_orientation_white.is_hovered(mp))
-        self._btn_orientation_black.draw(self.screen, self._btn_orientation_black.is_hovered(mp))
+        title = fm.large(bold=True).render("¿Quién mueve?", True, cfg.C_TEXT)
+        self.screen.blit(title, title.get_rect(center=(card.centerx, card.y + 48)))
+        help_text = fm.normal().render("La captura no contiene información del turno.", True, cfg.C_TEXT_DIM)
+        self.screen.blit(help_text, help_text.get_rect(center=(card.centerx, card.y + 82)))
         self._btn_turn_white.draw(self.screen, self._btn_turn_white.is_hovered(mp))
         self._btn_turn_black.draw(self.screen, self._btn_turn_black.is_hovered(mp))
-        if self._import_white_bottom is None:
-            direction = "Elige la orientación para asignar las coordenadas."
-        elif self._import_white_bottom:
-            direction = "Peones: blancas hacia arriba; negras hacia abajo."
-        else:
-            direction = "Peones: blancas hacia abajo; negras hacia arriba."
-        self._dialog_text(direction, x, card.y + 365, 480)
-        self._dialog_text("Sin historial: no se habilitan enroques ni captura al paso inicial.", x, card.y + 405, 480)
-        self._dialog_text(self._status_message, card.x + 30, card.y + 449, 880,
-                          color=(230, 115, 115) if self._status_is_error else cfg.C_TEXT_DIM)
-        self._btn_cancel_import.draw(self.screen, self._btn_cancel_import.is_hovered(mp))
-        self._btn_confirm_import.draw(self.screen, self._btn_confirm_import.is_hovered(mp),
-                                      disabled=self._import_white_bottom is None or self._import_turn is None)
-
-    def _dialog_text(self, text, x, y, width, *, bold=False, color=None):
-        """Ajusta mensajes a la tarjeta para mantener visibles los errores."""
-        font = fm.small(bold=bold)
-        line = ""
-        for word in text.split():
-            trial = f"{line} {word}".strip()
-            if line and font.size(trial)[0] > width:
-                self.screen.blit(font.render(line, True, color or cfg.C_TEXT), (x, y))
-                y += font.get_linesize()
-                line = word
-            else:
-                line = trial
-        self.screen.blit(font.render(line, True, color or cfg.C_TEXT), (x, y))
-
-    def _draw_import_preview(self):
-        if self._preview_images is None:
-            self._preview_images = load_piece_images(cfg.ASSETS_DIR, size=40)
-        board = self._preview_board()
-        for row in range(8):
-            for col in range(8):
-                rect = pygame.Rect(self._preview_rect.x + col * 40, self._preview_rect.y + row * 40, 40, 40)
-                bg = (238, 238, 210) if (row + col) % 2 == 0 else (118, 150, 86)
-                pygame.draw.rect(self.screen, bg, rect)
-                square = self._preview_square(col, row)
-                piece = board.piece_at(square)
-                if piece:
-                    self.screen.blit(self._preview_images[piece], rect)
-                if self._import_white_bottom is not None:
-                    if col == 0:
-                        t = fm.small().render(str(chess.square_rank(square) + 1), True, cfg.C_TEXT)
-                        self.screen.blit(t, (rect.x - 15, rect.y + 10))
-                    if row == 7:
-                        t = fm.small().render(chess.FILE_NAMES[chess.square_file(square)], True, cfg.C_TEXT)
-                        self.screen.blit(t, (rect.x + 15, rect.bottom + 5))

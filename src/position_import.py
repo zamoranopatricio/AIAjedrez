@@ -38,32 +38,15 @@ def read_clipboard_image(
 
 
 def import_position_from_clipboard(assets_dir: Path) -> str:
-    """Devuelve la cuadrícula visual, pendiente de confirmar orientación y turno."""
+    """Devuelve la colocación FEN (sin turno) de la captura pegada."""
     return detect_position_from_image(read_clipboard_image(), assets_dir)
-
-
-def orient_placement(placement: str, *, white_bottom: bool) -> str:
-    """Asigna coordenadas a la cuadrícula visual sin cambiar colores de piezas.
-
-    La captura se reconoce siempre de arriba a abajo con sprites derechos.
-    Si su esquina inferior izquierda es h8, se rotan las casillas 180 grados.
-    No se deduce la orientación de dónde se encuentran los peones o reyes.
-    """
-    board = chess.Board(None)
-    board.set_board_fen(placement)
-    if white_bottom:
-        return board.board_fen()
-    oriented = chess.Board(None)
-    for square, piece in board.piece_map().items():
-        oriented.set_piece_at(63 - square, piece)
-    return oriented.board_fen()
 
 
 def detect_position_from_image(image: Image.Image, assets_dir: Path) -> str:
     """Reconoce piezas cburnett sobre un tablero verde/crema visto de frente.
 
-    La salida usa provisionalmente a8 arriba a la izquierda. El menú debe
-    confirmar la orientación con orient_placement y preguntar el turno.
+    La salida es la parte de *piece placement* del FEN. El turno se consulta en
+    el menú, porque una imagen estática no permite deducirlo de forma fiable.
     """
     image = image.convert("RGB")
     board, light, dark = _extract_board(image)
