@@ -26,14 +26,12 @@ class TrainingScreen:
         piece_images: dict,
         engine,
         puzzles: tuple[str, ...] = _PUZZLE_FENS,
-        *,
-        visual_theme: str = cfg.VISUAL_THEME_CHESS_COM,
     ) -> None:
         if not puzzles:
             raise ValueError("El entrenamiento necesita al menos una posición.")
         self.screen = screen
         self.engine = engine
-        self.gui = BoardGUI(screen, piece_images, visual_theme=visual_theme)
+        self.gui = BoardGUI(screen, piece_images)
         self._puzzles = puzzles
         self._puzzle_index = 0
         self.board = chess.Board(self._puzzles[self._puzzle_index])

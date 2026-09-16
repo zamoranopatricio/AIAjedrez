@@ -9,13 +9,12 @@ def test_app_launches_tracking_screen_before_the_initial_screen_position_is_read
     launched = {}
 
     class FakeTrackingScreen:
-        def __init__(self, screen, piece_images, initial_fen, *, white_bottom, visual_theme):
+        def __init__(self, screen, piece_images, initial_fen, *, white_bottom):
             launched.update(
                 screen=screen,
                 piece_images=piece_images,
                 initial_fen=initial_fen,
                 white_bottom=white_bottom,
-                visual_theme=visual_theme,
             )
 
         def run(self):
@@ -41,6 +40,5 @@ def test_app_launches_tracking_screen_before_the_initial_screen_position_is_read
         "piece_images": "pieces",
         "initial_fen": None,
         "white_bottom": True,
-        "visual_theme": "chesscom",
         "ran": True,
     }

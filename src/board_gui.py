@@ -123,12 +123,10 @@ class BoardGUI:
         screen: pygame.Surface,
         piece_images: dict,
         flipped: bool = False,
-        visual_theme: str = cfg.VISUAL_THEME_CHESS_COM,
     ):
         self.screen = screen
         self.piece_images = piece_images
         self.flipped = flipped
-        self.visual_theme = cfg.normalize_visual_theme(visual_theme)
 
         pygame.font.init()
         # Rects de botones de acción (actualizados en cada frame)
@@ -260,7 +258,6 @@ class BoardGUI:
         last_move: Optional[chess.Move],
     ):
         self._alpha_surf.fill((0, 0, 0, 0))
-        light_sq, dark_sq = cfg.board_palette(self.visual_theme)
 
         for sq in range(64):
             rect = square_to_rect(sq, self.flipped)
@@ -272,7 +269,7 @@ class BoardGUI:
             light = (col + row) % 2 == 1
 
             # Color base de la casilla
-            base = light_sq if light else dark_sq
+            base = cfg.C_LIGHT_SQ if light else cfg.C_DARK_SQ
             pygame.draw.rect(self.screen, base, rect)
 
         # Último movimiento
@@ -360,13 +357,12 @@ class BoardGUI:
 
     def _draw_coordinates(self):
         """Dibuja las coordenadas dentro de las esquinas, como en Chess.com."""
-        light_sq, dark_sq = cfg.board_palette(self.visual_theme)
         for screen_row in range(8):
             rank = screen_row if self.flipped else 7 - screen_row
             square = chess.square(7 if self.flipped else 0, rank)
             rect = square_to_rect(square, self.flipped)
             light = (chess.square_file(square) + chess.square_rank(square)) % 2 == 1
-            color = dark_sq if light else light_sq
+            color = cfg.C_DARK_SQ if light else cfg.C_LIGHT_SQ
             label = fm.small(bold=True).render(str(rank + 1), True, color)
             self.screen.blit(label, (rect.x + 4, rect.y + 2))
 
@@ -375,7 +371,7 @@ class BoardGUI:
             square = chess.square(file_, 7 if self.flipped else 0)
             rect = square_to_rect(square, self.flipped)
             light = (chess.square_file(square) + chess.square_rank(square)) % 2 == 1
-            color = dark_sq if light else light_sq
+            color = cfg.C_DARK_SQ if light else cfg.C_LIGHT_SQ
             label = fm.small(bold=True).render(chess.FILE_NAMES[file_], True, color)
             self.screen.blit(label, label.get_rect(bottomright=(rect.right - 4, rect.bottom - 2)))
 

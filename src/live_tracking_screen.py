@@ -29,7 +29,6 @@ class LiveTrackingScreen:
         initial_fen: str | None,
         *,
         white_bottom: bool,
-        visual_theme: str = cfg.VISUAL_THEME_CHESS_COM,
     ):
         self.screen = screen
         self.clock = pygame.time.Clock()
@@ -39,9 +38,7 @@ class LiveTrackingScreen:
         self._turn_confirmed = initial_fen is not None
         # Mientras se configura, el tablero solo es una vista provisional: no acepta clics.
         self.state = GameState(mode=GameMode.HUMAN_VS_HUMAN, initial_fen=initial_fen)
-        self.gui = BoardGUI(
-            screen, piece_images, flipped=not white_bottom, visual_theme=visual_theme,
-        )
+        self.gui = BoardGUI(screen, piece_images, flipped=not white_bottom)
         self.monitor = ScreenRegionMonitor(
             ScreenshotTracker(self.state), cfg.ASSETS_DIR, white_bottom=white_bottom
         )

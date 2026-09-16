@@ -41,26 +41,6 @@ C_BG               = (14, 14, 26)
 # Paleta verde/crema inspirada en Chess.com.
 C_LIGHT_SQ         = (238, 238, 210)
 C_DARK_SQ          = (118, 150, 86)
-# El tema visual no modifica las reglas ni la posición: sólo la presentación.
-VISUAL_THEME_CHESS_COM = "chesscom"
-VISUAL_THEME_LICHESS   = "lichess"
-VISUAL_THEMES = (VISUAL_THEME_CHESS_COM, VISUAL_THEME_LICHESS)
-BOARD_PALETTES = {
-    # Verde/crema y piezas Neo, como Chess.com.
-    VISUAL_THEME_CHESS_COM: (C_LIGHT_SQ, C_DARK_SQ),
-    # Marrón/tostado y piezas clásicas, como el tema Brown de Lichess.
-    VISUAL_THEME_LICHESS: ((240, 217, 181), (181, 136, 99)),
-}
-
-
-def normalize_visual_theme(theme: str | None) -> str:
-    """Devuelve un tema conocido para que un valor guardado inválido sea seguro."""
-    return theme if theme in VISUAL_THEMES else VISUAL_THEME_CHESS_COM
-
-
-def board_palette(theme: str | None) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
-    """Colores (clara, oscura) del tablero para el tema visual indicado."""
-    return BOARD_PALETTES[normalize_visual_theme(theme)]
 C_HIGHLIGHT_SEL    = (20,  200,  60, 170)
 C_HIGHLIGHT_LEGAL  = (20,  200,  60,  75)
 C_LAST_MOVE        = (205, 210, 106, 140)

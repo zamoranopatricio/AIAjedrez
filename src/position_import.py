@@ -1,7 +1,7 @@
 """Importación local de posiciones desde una captura pegada del portapapeles.
 
-Reconoce tableros frontales Chess.com (Neo, verde/crema) y Lichess
-(Cburnett, beige/marrón). No envía la imagen a ningún servicio.
+Está deliberadamente acotada al tablero frontal verde/crema con las piezas
+Neo incluidas por la aplicación. No envía la imagen a ningún servicio.
 """
 from __future__ import annotations
 
@@ -12,13 +12,6 @@ from pathlib import Path
 import chess
 from PIL import Image, ImageChops, ImageGrab
 
-from src.asset_loader import (
-    LICHESS_PIECE_THEME,
-    PIECE_THEME,
-    download_pieces,
-    piece_assets_dir,
-)
-
 
 class PositionImportError(ValueError):
     """La captura no contiene un tablero que el importador pueda leer."""
@@ -26,7 +19,6 @@ class PositionImportError(ValueError):
 
 _LIGHT_MIN_PIXELS = 200
 _MIN_PIECE_OVERLAP = 0.35
-_MIN_WHITE_BRIGHT_PIXELS = 750
 
 
 def read_clipboard_image(
@@ -68,15 +60,15 @@ def orient_placement(placement: str, *, white_bottom: bool) -> str:
 
 
 def detect_position_from_image(image: Image.Image, assets_dir: Path) -> str:
-    """Reconoce piezas Neo o Cburnett sobre un tablero visto de frente.
+    """Reconoce piezas Neo sobre un tablero verde/crema visto de frente.
 
     La salida usa provisionalmente a8 arriba a la izquierda. El menú debe
     confirmar la orientación con orient_placement y preguntar el turno.
     """
     image = image.convert("RGB")
-    board, light, dark, theme = _extract_board(image)
+    board, light, dark = _extract_board(image)
     normalized = board.resize((640, 640), Image.Resampling.LANCZOS)
-    templates = _load_templates(assets_dir, theme)
+    templates = _load_templates(assets_dir)
 
     rows: list[str] = []
     for rank_from_top in range(8):
@@ -102,9 +94,7 @@ def detect_position_from_image(image: Image.Image, assets_dir: Path) -> str:
     return placement
 
 
-def _extract_board(
-    image: Image.Image,
-) -> tuple[Image.Image, tuple[int, int, int], tuple[int, int, int], str]:
+def _extract_board(image: Image.Image) -> tuple[Image.Image, tuple[int, int, int], tuple[int, int, int]]:
     colors = image.getcolors(maxcolors=image.width * image.height)
     if not colors:
         raise PositionImportError("La captura tiene demasiados colores para detectar el tablero.")
@@ -116,7 +106,7 @@ def _extract_board(
                  if count >= _LIGHT_MIN_PIXELS and _is_dark_square(rgb)), None)
     if light is None or dark is None:
         raise PositionImportError(
-            "No se detectó un tablero verde/crema o beige/marrón compatible en la captura."
+            "No se detectó un tablero verde/crema compatible en la captura."
         )
 
     pixels = image.load()
@@ -141,8 +131,7 @@ def _extract_board(
         )
 
     side = min(width, height)
-    theme = LICHESS_PIECE_THEME if _is_lichess_board(light, dark) else PIECE_THEME
-    return image.crop((left, top, left + side, top + side)), light, dark, theme
+    return image.crop((left, top, left + side, top + side)), light, dark
 
 
 def _is_light_square(rgb: tuple[int, int, int]) -> bool:
@@ -152,46 +141,23 @@ def _is_light_square(rgb: tuple[int, int, int]) -> bool:
 
 def _is_dark_square(rgb: tuple[int, int, int]) -> bool:
     r, g, b = rgb
-    green = 45 <= r <= 180 and g - r >= 18 and g - b >= 25
-    brown = 90 <= r <= 210 and 60 <= g <= 170 and 40 <= b <= 140 and r - g >= 20 and g - b >= 10
-    return green or brown
-
-
-def _is_lichess_board(light: tuple[int, int, int], dark: tuple[int, int, int]) -> bool:
-    """Distingue el marrón/beige clásico de Lichess del verde de Chess.com."""
-    lr, lg, lb = light
-    dr, dg, db = dark
-    return (
-        lr - lb >= 35 and lg - lb >= 20
-        and dr - dg >= 20 and dg - db >= 10
-    )
+    return 45 <= r <= 180 and g - r >= 18 and g - b >= 25
 
 
 def _near(pixel: tuple[int, int, int], color: tuple[int, int, int], tolerance: int = 8) -> bool:
     return all(abs(a - b) <= tolerance for a, b in zip(pixel, color))
 
 
-def _load_templates(assets_dir: Path, theme: str = PIECE_THEME) -> dict[str, Image.Image]:
-    """Carga las siluetas del tema detectado, no sus colores exactos.
+def _load_templates(assets_dir: Path) -> dict[str, Image.Image]:
+    """Carga las siluetas de las piezas Neo, no sus colores exactos.
 
     Las piezas Neo pueden verse con tonos ligeramente distintos al cambiar la
     escala. Comparar la silueta conserva la detección sin una IA remota.
     """
-    target_dir = piece_assets_dir(assets_dir, theme)
-    if not all((target_dir / f"{color}{piece}.png").exists()
-               for color in ("w", "b") for piece in "PNBRQK"):
-        # Las plantillas Lichess se preparan bajo demanda, sin afectar la
-        # caché Neo existente ni requerir que el usuario cambie visualmente
-        # el tema antes de importar una captura beige/marrón.
-        if not download_pieces(assets_dir, theme=theme):
-            raise PositionImportError(
-                "No se pudieron preparar las plantillas de piezas para reconocer esta captura."
-            )
-
     templates: dict[str, Image.Image] = {}
     for color in ("w", "b"):
         for piece in "PNBRQK":
-            path = target_dir / f"{color}{piece}.png"
+            path = assets_dir / f"{color}{piece}.png"
             if not path.exists():
                 raise PositionImportError(f"Falta la plantilla de pieza {path.name}.")
             foreground = Image.open(path).convert("RGBA").resize((80, 80), Image.Resampling.LANCZOS)
@@ -221,10 +187,7 @@ def _best_piece(
     # Las piezas negras cburnett contienen pequeños brillos, pero no ocupan
     # una zona clara grande como las blancas. El umbral se mide en una celda
     # normalizada de 80×80 px.
-    # En Cburnett el rey negro tiene un contorno blanco visible. El umbral
-    # debe quedar por encima de ese brillo (~550 px) y por debajo de una
-    # pieza blanca incluso en una casilla oscura (~950 px).
-    color = "w" if bright_pixels >= _MIN_WHITE_BRIGHT_PIXELS else "b"
+    color = "w" if bright_pixels >= 500 else "b"
     return color + best_name[1:], best_overlap
 
 

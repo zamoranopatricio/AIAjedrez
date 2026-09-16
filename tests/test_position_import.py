@@ -77,19 +77,6 @@ def test_detects_reference_chess_com_capture_with_highlighted_squares():
     )
 
 
-def test_detects_reference_lichess_cburnett_capture():
-    """Lichess usa Cburnett sobre casillas beige/marrón, no Neo verde."""
-    from src.position_import import detect_position_from_image
-
-    screenshot = Path(
-        r"C:\Users\esteb\AppData\Local\Temp\codex-clipboard-f6cdab21-66df-44f1-96dd-f5fa3f229c9a.png"
-    )
-    if not screenshot.exists():
-        pytest.skip("La captura de regresión solo está disponible en el equipo de desarrollo.")
-
-    assert detect_position_from_image(Image.open(screenshot), Path("assets/pieces")) == chess.STARTING_BOARD_FEN
-
-
 @pytest.mark.parametrize(
     ("placement", "message"),
     [

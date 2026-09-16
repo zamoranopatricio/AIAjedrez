@@ -182,7 +182,6 @@ class AnalysisScreen:
         san_history: list,      # list[str]
         result_text: str,
         piece_images: dict,
-        visual_theme: str = cfg.VISUAL_THEME_CHESS_COM,
     ):
         self.screen      = screen
         self.engine_path = engine_path
@@ -190,7 +189,6 @@ class AnalysisScreen:
         self.moves       = moves_played
         self.san_history = san_history
         self.result_text = result_text
-        self.visual_theme = cfg.normalize_visual_theme(visual_theme)
         self.clock       = pygame.time.Clock()
 
         # Escalar piezas al tamaño del tablero de análisis
@@ -418,8 +416,9 @@ class AnalysisScreen:
             light = (col + row) % 2 == 1
             rx = BX + col * SQ
             ry = BY + (7 - row) * SQ
-            light_sq, dark_sq = cfg.board_palette(self.visual_theme)
-            pygame.draw.rect(self.screen, light_sq if light else dark_sq, (rx, ry, SQ, SQ))
+            pygame.draw.rect(self.screen,
+                             cfg.C_LIGHT_SQ if light else cfg.C_DARK_SQ,
+                             (rx, ry, SQ, SQ))
 
         # Highlight último movimiento
         alpha = pygame.Surface((SQ, SQ), pygame.SRCALPHA)

@@ -70,18 +70,13 @@ class ChessApp:
 
         # Descargar piezas si faltan
         _show_loading(self.screen, "Verificando assets de piezas…")
-        self.visual_theme = cfg.VISUAL_THEME_CHESS_COM
-        ok = download_pieces(
-            cfg.ASSETS_DIR, size=cfg.SQUARE_SIZE, theme=self.visual_theme,
-        )
+        ok = download_pieces(cfg.ASSETS_DIR, size=cfg.SQUARE_SIZE)
         if not ok:
             log.warning("Algunas piezas no se pudieron descargar. Se usará fallback Unicode.")
 
         # Cargar imágenes de piezas
         _show_loading(self.screen, "Cargando imágenes…")
-        self.piece_images = load_piece_images(
-            cfg.ASSETS_DIR, size=cfg.SQUARE_SIZE, theme=self.visual_theme,
-        )
+        self.piece_images = load_piece_images(cfg.ASSETS_DIR, size=cfg.SQUARE_SIZE)
 
         # Motor Stockfish
         self.engine = EngineWrapper(cfg.STOCKFISH_PATH)
@@ -122,11 +117,8 @@ class ChessApp:
     def run(self):
         while True:
             result = MenuScreen(
-                self.screen,
-                engine_available=self.engine.is_available(),
-                visual_theme=self.visual_theme,
+                self.screen, engine_available=self.engine.is_available()
             ).run()
-            self._apply_visual_theme(result.visual_theme)
             if result.tracking_mode:
                 self._run_tracking(result)
                 continue
@@ -143,16 +135,12 @@ class ChessApp:
             self.piece_images,
             result.initial_fen,
             white_bottom=not bool(result.initial_flipped),
-            visual_theme=getattr(self, "visual_theme", result.visual_theme),
         ).run()
 
     def _run_training(self) -> None:
         """Reto de motor aislado: no modifica ninguna partida local."""
         if self.engine.is_available():
-            TrainingScreen(
-                self.screen, self.piece_images, self.engine,
-                visual_theme=self.visual_theme,
-            ).run()
+            TrainingScreen(self.screen, self.piece_images, self.engine).run()
 
     # ── Inicio de partida ──────────────────────────────────────────────────
 
@@ -170,7 +158,6 @@ class ChessApp:
             piece_images=self.piece_images,
             flipped=(result.initial_flipped if result.initial_flipped is not None else
                      result.human_color == chess.BLACK and result.mode == GameMode.HUMAN_VS_AI),
-            visual_theme=getattr(self, "visual_theme", result.visual_theme),
         )
         self.engine.clear()
         if self.engine.is_available():
@@ -561,26 +548,12 @@ class ChessApp:
                 san_history=list(self.state.san_history),
                 result_text=self.state.result_text or "Partida en curso",
                 piece_images=self.piece_images,
-                visual_theme=getattr(self, "visual_theme", cfg.VISUAL_THEME_CHESS_COM),
             )
             screen.run()
         except _BackToMenu:
             pass
         except Exception as exc:
             log.error("Error en pantalla de análisis: %s", exc)
-
-    def _apply_visual_theme(self, theme: str) -> None:
-        """Carga las piezas del tema elegido antes de abrir cualquier modo."""
-        selected = cfg.normalize_visual_theme(theme)
-        if selected == self.visual_theme:
-            return
-        _show_loading(self.screen, f"Cargando estilo {selected}…")
-        if not download_pieces(cfg.ASSETS_DIR, size=cfg.SQUARE_SIZE, theme=selected):
-            log.warning("No se pudo completar el set de piezas %s.", selected)
-        self.piece_images = load_piece_images(
-            cfg.ASSETS_DIR, size=cfg.SQUARE_SIZE, theme=selected,
-        )
-        self.visual_theme = selected
 
     def _shutdown(self):
         log.info("Cerrando aplicación…")

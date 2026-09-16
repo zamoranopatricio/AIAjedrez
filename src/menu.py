@@ -31,7 +31,6 @@ class MenuResult:
     initial_flipped: bool | None = None
     tracking_mode: bool = False
     training_mode: bool = False
-    visual_theme: str = cfg.VISUAL_THEME_CHESS_COM
 
 
 class _Button:
@@ -65,12 +64,7 @@ class _Button:
 
 
 class MenuScreen:
-    def __init__(
-        self,
-        screen: pygame.Surface,
-        engine_available: bool = True,
-        visual_theme: str = cfg.VISUAL_THEME_CHESS_COM,
-    ):
+    def __init__(self, screen: pygame.Surface, engine_available: bool = True):
         self.screen = screen
         self.clock  = pygame.time.Clock()
         self.engine_available = engine_available
@@ -82,7 +76,6 @@ class MenuScreen:
         self._color        = chess.WHITE
         self._diff_index   = 2
         self._ai_indicator = True
-        self._visual_theme = cfg.normalize_visual_theme(visual_theme)
         self._imported_placement: str | None = None
         self._import_white_bottom: bool | None = None
         self._import_turn: chess.Color | None = None
@@ -139,12 +132,6 @@ class MenuScreen:
             pygame.Rect(cx - total // 2 + (bw + gap) * 3, 158, bw, bh), "Entrenamiento")
         self._btn_import = _Button(
             pygame.Rect(cx - 190, 224, 380, 42), "Pegar captura del tablero  (Ctrl+V)")
-
-        # Siempre visible: no compite con los controles dinámicos del modo.
-        self._btn_theme_chess = _Button(
-            pygame.Rect(W - 270, 48, 126, 32), "Chess.com", font=fm.small(bold=False))
-        self._btn_theme_lichess = _Button(
-            pygame.Rect(W - 136, 48, 126, 32), "Lichess", font=fm.small(bold=False))
 
         self._btn_turn_white = _Button(pygame.Rect(cx - 150, 330, 140, 46), "Mueven Blancas")
         self._btn_turn_black = _Button(pygame.Rect(cx + 10, 330, 140, 46), "Mueven Negras")
@@ -218,8 +205,6 @@ class MenuScreen:
             btn.selected = i == self._diff_index
         self._btn_ind_on.selected = self._ai_indicator
         self._btn_ind_off.selected = not self._ai_indicator
-        self._btn_theme_chess.selected = self._visual_theme == cfg.VISUAL_THEME_CHESS_COM
-        self._btn_theme_lichess.selected = self._visual_theme == cfg.VISUAL_THEME_LICHESS
 
     def _layout_turn_dialog(self):
         W, H = cfg.WINDOW_WIDTH, cfg.WINDOW_HEIGHT
@@ -259,13 +244,7 @@ class MenuScreen:
             self._layout_buttons()
             return None
 
-        if self._btn_theme_chess.is_hovered(pos):
-            self._visual_theme = cfg.VISUAL_THEME_CHESS_COM
-            self._preview_images = None
-        elif self._btn_theme_lichess.is_hovered(pos):
-            self._visual_theme = cfg.VISUAL_THEME_LICHESS
-            self._preview_images = None
-        elif self._btn_import.is_hovered(pos):
+        if self._btn_import.is_hovered(pos):
             self._import_from_clipboard()
         elif self._btn_hvai.is_hovered(pos) and self.engine_available:
             self._mode = GameMode.HUMAN_VS_AI
@@ -301,7 +280,6 @@ class MenuScreen:
                 initial_flipped=(not self._import_white_bottom if self._initial_fen() else None),
                 tracking_mode=self._tracking_mode,
                 training_mode=self._training_mode,
-                visual_theme=self._visual_theme,
             )
         elif self._mode == GameMode.HUMAN_VS_AI and not self._tracking_mode and not self._training_mode:
             for i, btn in enumerate(self._btn_diffs):
@@ -417,10 +395,6 @@ class MenuScreen:
             "Entorno local de ajedrez con análisis Stockfish en tiempo real",
             True, cfg.C_TEXT_DIM)
         self.screen.blit(t2, t2.get_rect(center=(cx, 96)))
-
-        self._label("ESTILO", W - 203, 30)
-        self._btn_theme_chess.draw(self.screen, self._btn_theme_chess.is_hovered(mp))
-        self._btn_theme_lichess.draw(self.screen, self._btn_theme_lichess.is_hovered(mp))
 
         # Separador decorativo
         pygame.draw.line(self.screen, cfg.C_PANEL_BORDER, (cx - 200, 118), (cx + 200, 118), 1)
@@ -543,15 +517,12 @@ class MenuScreen:
 
     def _draw_import_preview(self):
         if self._preview_images is None:
-            self._preview_images = load_piece_images(
-                cfg.ASSETS_DIR, size=40, theme=self._visual_theme,
-            )
+            self._preview_images = load_piece_images(cfg.ASSETS_DIR, size=40)
         board = self._preview_board()
-        light_sq, dark_sq = cfg.board_palette(self._visual_theme)
         for row in range(8):
             for col in range(8):
                 rect = pygame.Rect(self._preview_rect.x + col * 40, self._preview_rect.y + row * 40, 40, 40)
-                bg = light_sq if (row + col) % 2 == 0 else dark_sq
+                bg = (238, 238, 210) if (row + col) % 2 == 0 else (118, 150, 86)
                 pygame.draw.rect(self.screen, bg, rect)
                 square = self._preview_square(col, row)
                 piece = board.piece_at(square)
