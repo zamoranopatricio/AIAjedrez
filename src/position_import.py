@@ -1,7 +1,7 @@
 """Importación local de posiciones desde una captura pegada del portapapeles.
 
 Está deliberadamente acotada al tablero frontal verde/crema con las piezas
-Neo incluidas por la aplicación. No envía la imagen a ningún servicio.
+cburnett incluidas por la aplicación. No envía la imagen a ningún servicio.
 """
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ def orient_placement(placement: str, *, white_bottom: bool) -> str:
 
 
 def detect_position_from_image(image: Image.Image, assets_dir: Path) -> str:
-    """Reconoce piezas Neo sobre un tablero verde/crema visto de frente.
+    """Reconoce piezas cburnett sobre un tablero verde/crema visto de frente.
 
     La salida usa provisionalmente a8 arriba a la izquierda. El menú debe
     confirmar la orientación con orient_placement y preguntar el turno.
@@ -149,10 +149,10 @@ def _near(pixel: tuple[int, int, int], color: tuple[int, int, int], tolerance: i
 
 
 def _load_templates(assets_dir: Path) -> dict[str, Image.Image]:
-    """Carga las siluetas de las piezas Neo, no sus colores exactos.
+    """Carga las siluetas de las piezas, no sus colores exactos.
 
-    Las piezas Neo pueden verse con tonos ligeramente distintos al cambiar la
-    escala. Comparar la silueta conserva la detección sin una IA remota.
+    Chess.com y Lichess usan variantes de cburnett con tonos ligeramente
+    distintos. Comparar la silueta las hace compatibles sin una IA remota.
     """
     templates: dict[str, Image.Image] = {}
     for color in ("w", "b"):

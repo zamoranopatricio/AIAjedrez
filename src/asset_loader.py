@@ -1,18 +1,19 @@
 """
 src/asset_loader.py
-Descarga el set de piezas "Neo" de Chess.com (PNG) y las carga en Pygame.
+Descarga el set de piezas "cburnett" de lichess (SVG → PNG) y las carga en Pygame.
 Solo necesita internet la primera vez; luego funciona 100 % offline.
 """
 import logging
 from pathlib import Path
 
 import requests
+import cairosvg
 import pygame
 import chess
 
 log = logging.getLogger(__name__)
 
-# Mapa nombre ↔ código de assets
+# Mapa nombre ↔ código cburnett
 _COLOR_MAP  = {chess.WHITE: "w", chess.BLACK: "b"}
 _PIECE_MAP  = {
     chess.PAWN:   "P",
@@ -23,20 +24,23 @@ _PIECE_MAP  = {
     chess.KING:   "K",
 }
 
-PIECE_THEME = "neo"
-_THEME_MARKER = ".piece-theme"
-_CHESS_COM_NEO_BASE = "https://www.chess.com/chess-themes/pieces/neo/300"
+# Tonos cercanos al set gris/crema de Chess.com. Se aplican sobre los SVG
+# cburnett ya incluidos, por lo que la silueta usada por el importador y la que
+# ve el usuario son la misma.
+_BLACK_BODY = (75, 75, 75)
+_BLACK_OUTLINE = (45, 45, 45)
+_WHITE_OUTLINE = (70, 70, 70)
 
-
-def piece_url(color: str, piece: str) -> str:
-    """Devuelve la URL pública de una pieza Neo de Chess.com."""
-    return f"{_CHESS_COM_NEO_BASE}/{color}{piece.lower()}.png"
+_LICHESS_BASE = (
+    "https://raw.githubusercontent.com/lichess-org/lila/"
+    "master/public/piece/cburnett"
+)
 
 # ── Descarga ───────────────────────────────────────────────────────────────
 
 def download_pieces(assets_dir: Path, size: int = 80) -> bool:
     """
-    Descarga las 12 piezas PNG Neo desde Chess.com.
+    Descarga y convierte las 12 piezas SVG a PNG.
     Devuelve True si todas las piezas están disponibles.
     """
     assets_dir.mkdir(parents=True, exist_ok=True)
@@ -45,30 +49,30 @@ def download_pieces(assets_dir: Path, size: int = 80) -> bool:
         for c in ("w", "b")
         for p in ("P", "N", "B", "R", "Q", "K")
     ]
-    marker = assets_dir / _THEME_MARKER
-    theme_is_current = marker.exists() and marker.read_text(encoding="utf-8").strip() == PIECE_THEME
     missing = [n for n in all_names if not (assets_dir / f"{n}.png").exists()]
 
-    if theme_is_current and not missing:
+    if not missing:
         return True
 
-    # Un caché previo podía contener cburnett con los mismos nombres; el
-    # marcador evita conservarlo por error después de cambiar al set Neo.
-    to_download = all_names if not theme_is_current else missing
-    log.info("Descargando set de piezas Neo (%d piezas)…", len(to_download))
+    log.info("Descargando set de piezas cburnett (%d piezas)…", len(missing))
     ok = True
-    for name in to_download:
+    for name in missing:
+        url = f"{_LICHESS_BASE}/{name}.svg"
         try:
-            resp = requests.get(piece_url(name[0], name[1]), timeout=15)
+            resp = requests.get(url, timeout=15)
             resp.raise_for_status()
-            (assets_dir / f"{name}.png").write_bytes(resp.content)
+            png_bytes = cairosvg.svg2png(
+                bytestring=resp.content,
+                output_width=size,
+                output_height=size,
+            )
+            (assets_dir / f"{name}.png").write_bytes(png_bytes)
             log.debug("  ✓ %s", name)
         except Exception as exc:
             log.error("  ✗ No se pudo descargar %s: %s", name, exc)
             ok = False
 
     if ok:
-        marker.write_text(PIECE_THEME, encoding="utf-8")
         log.info("Piezas descargadas correctamente.")
     return ok
 
@@ -94,12 +98,35 @@ def load_piece_images(assets_dir: Path, size: int = 80) -> dict:
             if path.exists():
                 surf = pygame.image.load(str(path)).convert_alpha()
                 surf = pygame.transform.smoothscale(surf, (size, size))
-                images[piece] = surf
+                images[piece] = _apply_chess_com_style(surf, color)
             else:
                 log.warning("Pieza no encontrada: %s — usando fallback Unicode", name)
                 images[piece] = _make_unicode_surface(piece, size)
 
     return images
+
+
+def _apply_chess_com_style(surface: pygame.Surface, color: chess.Color) -> pygame.Surface:
+    """Aproxima el acabado gris con bordes visibles del set de Chess.com.
+
+    No sustituye la geometría cburnett: así una captura de la aplicación usa
+    exactamente las mismas siluetas que reconoce ``position_import``.
+    """
+    styled = surface.copy()
+    replacement = _BLACK_BODY if color == chess.BLACK else _WHITE_OUTLINE
+
+    for y in range(styled.get_height()):
+        for x in range(styled.get_width()):
+            px = styled.get_at((x, y))
+            if px.a and max(px.r, px.g, px.b) <= 12:
+                styled.set_at((x, y), (*replacement, px.a))
+
+    if color == chess.BLACK:
+        mask = pygame.mask.from_surface(styled, threshold=1)
+        outline = mask.outline()
+        if len(outline) > 1:
+            pygame.draw.lines(styled, _BLACK_OUTLINE, True, outline, 1)
+    return styled
 
 
 def _make_unicode_surface(piece: chess.Piece, size: int) -> pygame.Surface:
