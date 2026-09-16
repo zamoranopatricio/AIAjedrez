@@ -88,7 +88,6 @@ class ChessApp:
         self.state: GameState | None = None
         self.gui:   BoardGUI  | None = None
         self.show_ai_indicator: bool = True
-        self.show_blue_alternative: bool = True
 
         # Variables de interacción
         self._dragging_piece: chess.Piece | None = None
@@ -200,7 +199,6 @@ class ChessApp:
                 legal_targets=self.state.legal_targets,
                 last_move=self.state.last_move,
                 best_move=self.engine.best_move if self.engine.is_available() else None,
-                alternative_move=self._blue_suggestion_move(),
                 score=self.engine.score if self.engine.is_available() else None,
                 dragging_piece=self._dragging_piece,
                 drag_pos=self._drag_pos,
@@ -208,8 +206,6 @@ class ChessApp:
                 mode_label=self._mode_label(),
                 engine_available=self.engine.is_available(),
                 show_ai_indicator=self.show_ai_indicator,
-                show_blue_arrow_toggle=(self.state.mode == GameMode.HUMAN_VS_HUMAN),
-                blue_arrow_enabled=self.show_blue_alternative,
                 mouse_pos=mouse_pos,
             )
 
@@ -236,11 +232,6 @@ class ChessApp:
         if g.btn_toggle_indicator.collidepoint(pos):
             self.show_ai_indicator = not self.show_ai_indicator
             return "toggle_indicator"
-
-        if (self.state.mode == GameMode.HUMAN_VS_HUMAN
-                and g.btn_toggle_blue_arrow.collidepoint(pos)):
-            self.show_blue_alternative = not self.show_blue_alternative
-            return "toggle_blue_arrow"
 
         if g.btn_undo.collidepoint(pos):
             double = (self.state.mode == GameMode.HUMAN_VS_AI)
@@ -365,17 +356,6 @@ class ChessApp:
         if fen != self._last_fen and not self.engine.is_analysing:
             self._last_fen = fen
             self.engine.request_analysis(self.state.board)
-
-    def _blue_suggestion_move(self) -> chess.Move | None:
-        """Alternativa de Stockfish visible solo en la partida local entre humanos."""
-        if (
-            self.state.mode != GameMode.HUMAN_VS_HUMAN
-            or not self.show_ai_indicator
-            or not self.show_blue_alternative
-            or not self.engine.is_available()
-        ):
-            return None
-        return self.engine.alternative_move
 
     # ── Teclado ────────────────────────────────────────────────────────────
 

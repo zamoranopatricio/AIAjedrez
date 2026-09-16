@@ -49,13 +49,7 @@ def pixel_to_square(px: int, py: int, flipped: bool = False) -> Optional[int]:
 
 # ── Dibujo de flecha ────────────────────────────────────────────────────────
 
-def _draw_arrow(
-    surface: pygame.Surface,
-    start: tuple,
-    end: tuple,
-    fill_color=None,
-    outline_color=None,
-):
+def _draw_arrow(surface: pygame.Surface, start: tuple, end: tuple):
     """
     Dibuja una flecha vectorizada elegante de 7 vértices estilo Lichess/Chess.com.
     Combina un cuerpo rectilíneo con una punta triangular afilada y borde sutil.
@@ -96,8 +90,8 @@ def _draw_arrow(
         (sx - px * (stem_width / 2), sy - py * (stem_width / 2)),
     ]
 
-    fill_col    = fill_color or getattr(cfg, "C_ARROW_FILL", (255, 170, 0, 200))
-    outline_col = outline_color or getattr(cfg, "C_ARROW_OUTLINE", (180, 90, 0, 255))
+    fill_col    = getattr(cfg, "C_ARROW_FILL", (255, 170, 0, 200))
+    outline_col = getattr(cfg, "C_ARROW_OUTLINE", (180, 90, 0, 255))
 
     int_pts = [(int(x), int(y)) for x, y in pts]
 
@@ -132,7 +126,6 @@ class BoardGUI:
         # Rects de botones de acción (actualizados en cada frame)
         self.flip_btn_rect        : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_toggle_indicator : pygame.Rect = pygame.Rect(0, 0, 0, 0)
-        self.btn_toggle_blue_arrow: pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_undo             : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_save             : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_restart          : pygame.Rect = pygame.Rect(0, 0, 0, 0)
@@ -166,22 +159,16 @@ class BoardGUI:
         mode_label: str,
         engine_available: bool,
         show_ai_indicator: bool = True,
-        alternative_move: Optional[chess.Move] = None,
-        show_blue_arrow_toggle: bool = False,
-        blue_arrow_enabled: bool = False,
         mouse_pos: tuple[int, int] = (0, 0),
     ):
         self.screen.fill(cfg.C_BG)
         self._draw_board_squares(board, selected_square, legal_targets, last_move)
         if show_ai_indicator:
-            self._draw_arrow_overlay(best_move, alternative_move)
+            self._draw_arrow_overlay(best_move, board)
         self._draw_pieces(board, selected_square if dragging_piece else None, dragging_piece, drag_pos)
         self._draw_coordinates()
         self._draw_eval_bar(score, board, show_ai_indicator)
-        self._draw_side_panel(
-            board, san_history, mode_label, engine_available, score,
-            show_ai_indicator, show_blue_arrow_toggle, blue_arrow_enabled, mouse_pos,
-        )
+        self._draw_side_panel(board, san_history, mode_label, engine_available, score, show_ai_indicator, mouse_pos)
 
     def draw_game_over(self, result_text: str, mouse_pos: tuple = (0, 0)):
         """Overlay semitransparente de fin de partida con botones clickeables."""
@@ -312,24 +299,15 @@ class BoardGUI:
 
     # ── Flecha de sugerencia ───────────────────────────────────────────────
 
-    def _draw_arrow_overlay(
-        self,
-        best_move: Optional[chess.Move],
-        alternative_move: Optional[chess.Move] = None,
-    ):
-        if best_move is None and alternative_move is None:
+    def _draw_arrow_overlay(self, best_move: Optional[chess.Move], board: chess.Board):
+        if best_move is None:
             return
+        start = square_to_pixel(best_move.from_square, self.flipped)
+        end   = square_to_pixel(best_move.to_square,   self.flipped)
 
         # Dibujar sobre superficie con alpha
         arrow_surf = pygame.Surface((cfg.WINDOW_WIDTH, cfg.WINDOW_HEIGHT), pygame.SRCALPHA)
-        if alternative_move is not None and alternative_move != best_move:
-            alt_start = square_to_pixel(alternative_move.from_square, self.flipped)
-            alt_end = square_to_pixel(alternative_move.to_square, self.flipped)
-            _draw_arrow(arrow_surf, alt_start, alt_end, cfg.C_ALT_ARROW_FILL, cfg.C_ALT_ARROW_OUTLINE)
-        if best_move is not None:
-            start = square_to_pixel(best_move.from_square, self.flipped)
-            end = square_to_pixel(best_move.to_square, self.flipped)
-            _draw_arrow(arrow_surf, start, end, cfg.C_ARROW_FILL, cfg.C_ARROW_OUTLINE)
+        _draw_arrow(arrow_surf, start, end)
         self.screen.blit(arrow_surf, (0, 0))
 
     # ── Coordenadas ────────────────────────────────────────────────────────
@@ -412,8 +390,6 @@ class BoardGUI:
         engine_available: bool,
         score,
         show_ai_indicator: bool = True,
-        show_blue_arrow_toggle: bool = False,
-        blue_arrow_enabled: bool = False,
         mouse_pos: tuple[int, int] = (0, 0),
     ):
         px = cfg.PANEL_X
@@ -477,7 +453,7 @@ class BoardGUI:
         t = fm.small(bold=True).render("MOVIMIENTOS", True, cfg.C_TEXT_DIM)
         self.screen.blit(t, (px + pad, y)); y += 20
 
-        FOOTER_H = 240 if show_blue_arrow_toggle else 200
+        FOOTER_H = 200
         max_visible = max(0, (py + ph - y - FOOTER_H) // 18)
         pairs_total = (len(san_history) + 1) // 2
         start_pair  = max(0, pairs_total - max_visible)
@@ -517,28 +493,12 @@ class BoardGUI:
         txt = fm.small(bold=True).render(ind_text, True, cfg.C_BTN_TEXT)
         self.screen.blit(txt, txt.get_rect(center=self.btn_toggle_indicator.center))
 
-        blue_row_y = btn_start_y + 40
-        if show_blue_arrow_toggle:
-            self.btn_toggle_blue_arrow = pygame.Rect(px + pad, blue_row_y, flip_w, 32)
-            hov_b = self.btn_toggle_blue_arrow.collidepoint(mouse_pos)
-            blue_bg = (35, 85, 165) if blue_arrow_enabled else (55, 45, 75)
-            blue_draw = tuple(min(255, c + 35) for c in blue_bg) if hov_b else blue_bg
-            pygame.draw.rect(self.screen, blue_draw, self.btn_toggle_blue_arrow, border_radius=8)
-            pygame.draw.rect(self.screen, (90, 165, 255), self.btn_toggle_blue_arrow, 1, border_radius=8)
-            blue_text = "Flecha azul: ON" if blue_arrow_enabled else "Flecha azul: OFF"
-            txt = fm.small(bold=True).render(blue_text, True, cfg.C_BTN_TEXT)
-            self.screen.blit(txt, txt.get_rect(center=self.btn_toggle_blue_arrow.center))
-            orient_y = blue_row_y + 41
-        else:
-            self.btn_toggle_blue_arrow = pygame.Rect(0, 0, 0, 0)
-            orient_y = btn_start_y + 41
-
         orient_label = "Vista: Negras abajo" if self.flipped else "Vista: Blancas abajo"
         t_orient = fm.small().render(orient_label, True, cfg.C_TEXT_DIM)
-        self.screen.blit(t_orient, t_orient.get_rect(center=(px + pw // 2, orient_y)))
+        self.screen.blit(t_orient, t_orient.get_rect(center=(px + pw // 2, btn_start_y + 32 + 9)))
 
         # Cuadrícula 2×2 de botones de acción
-        cell_y = btn_start_y + (92 if show_blue_arrow_toggle else 52)
+        cell_y = btn_start_y + 52
         cell_h = 32
         cell_gap = 6
 
