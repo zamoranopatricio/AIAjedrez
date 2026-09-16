@@ -90,9 +90,6 @@ class ChessApp:
         self._dragging_piece: chess.Piece | None = None
         self._drag_from: int | None = None
         self._drag_pos  = (0, 0)
-        self._focus_click_pending = False
-        self._focus_click_replayed = False
-        self._replayed_focus_pos: tuple[int, int] | None = None
 
         # Control de solicitud de análisis
         self._analysis_requested_for: chess.Zobrist | None = None   # type: ignore
@@ -138,9 +135,6 @@ class ChessApp:
         self._dragging_piece = None
         self._drag_from      = None
         self._drag_pos       = (0, 0)
-        self._focus_click_pending = False
-        self._focus_click_replayed = False
-        self._replayed_focus_pos = None
         self._ai_move_pending = False
         self._last_fen        = ""
 
@@ -160,14 +154,6 @@ class ChessApp:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self._shutdown(); return
-                if event.type == pygame.WINDOWFOCUSLOST:
-                    self._mark_window_focus_lost()
-                    continue
-                if event.type == pygame.WINDOWFOCUSGAINED:
-                    self._recover_focus_click(
-                        pygame.mouse.get_pos(), pygame.mouse.get_pressed(3)[0]
-                    )
-                    continue
                 if event.type == pygame.KEYDOWN:
                     action = self._handle_key(event.key)
                     if action == "menu":
@@ -177,18 +163,12 @@ class ChessApp:
                     if action == "analysis":
                         self._open_analysis(); continue
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    if self._consume_replayed_focus_press(event):
-                        continue
                     ui_action = self._handle_ui_click(event.pos)
                     if ui_action == "menu":     return
                     if ui_action == "analysis": self._open_analysis(); continue
                     if ui_action:               continue  # otro botón manejado
                 if not self.state.game_over and self.state.is_human_turn():
                     self._handle_mouse(event)
-
-                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                    self._focus_click_replayed = False
-                    self._replayed_focus_pos = None
 
             # Solicitar análisis si cambió la posición
             self._maybe_request_analysis()
@@ -279,48 +259,6 @@ class ChessApp:
         return None
 
     # ── Eventos de ratón ───────────────────────────────────────────────────
-
-    def _mark_window_focus_lost(self):
-        """Prepara la recuperación del clic que Windows usa para devolver el foco."""
-        self._focus_click_pending = True
-        self._focus_click_replayed = False
-        self._replayed_focus_pos = None
-        self._dragging_piece = None
-        self._drag_from = None
-
-    def _recover_focus_click(self, pos: tuple[int, int], left_button_down: bool) -> bool:
-        """Reproduce en el tablero un clic mantenido durante WINDOWFOCUSGAINED."""
-        if not self._focus_click_pending:
-            return False
-
-        self._focus_click_pending = False
-        if (
-            not left_button_down
-            or self.state.game_over
-            or not self.state.is_human_turn()
-            or pixel_to_square(*pos, self.gui.flipped) is None
-        ):
-            return False
-
-        replay = pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=pos)
-        self._handle_mouse(replay)
-        self._focus_click_replayed = True
-        self._replayed_focus_pos = pos
-        return True
-
-    def _consume_replayed_focus_press(self, event: pygame.event.Event) -> bool:
-        """Evita procesar dos veces el clic si Pygame también lo entregó."""
-        if (
-            not self._focus_click_replayed
-            or event.type != pygame.MOUSEBUTTONDOWN
-            or event.button != 1
-            or event.pos != self._replayed_focus_pos
-        ):
-            return False
-
-        self._focus_click_replayed = False
-        self._replayed_focus_pos = None
-        return True
 
     def _handle_mouse(self, event: pygame.event.Event):
         flipped = self.gui.flipped
