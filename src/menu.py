@@ -29,7 +29,6 @@ class MenuResult:
     show_ai_indicator: bool = True
     initial_fen: str | None = None
     initial_flipped: bool | None = None
-    tracking_mode: bool = False
 
 
 class _Button:
@@ -70,7 +69,6 @@ class MenuScreen:
 
         # Sin motor, una partida local sigue siendo completamente jugable.
         self._mode         = GameMode.HUMAN_VS_AI if engine_available else GameMode.HUMAN_VS_HUMAN
-        self._tracking_mode = False
         self._color        = chess.WHITE
         self._diff_index   = 2
         self._ai_indicator = True
@@ -117,15 +115,13 @@ class MenuScreen:
         W, H = cfg.WINDOW_WIDTH, cfg.WINDOW_HEIGHT
         cx = W // 2
 
-        bw, bh = 180, 48
-        gap = 14
-        total = bw * 3 + gap * 2
+        bw, bh = 220, 48
+        gap = 18
+        total = bw * 2 + gap
         self._btn_hvai = _Button(
             pygame.Rect(cx - total // 2, 158, bw, bh), "Humano vs IA")
         self._btn_hvh = _Button(
             pygame.Rect(cx - total // 2 + bw + gap, 158, bw, bh), "Humano vs Humano")
-        self._btn_tracking = _Button(
-            pygame.Rect(cx - total // 2 + (bw + gap) * 2, 158, bw, bh), "Seguimiento")
         self._btn_import = _Button(
             pygame.Rect(cx - 190, 224, 380, 42), "Pegar captura del tablero  (Ctrl+V)")
 
@@ -164,11 +160,10 @@ class MenuScreen:
 
         self._btn_hvai.rect.y = y_next + 16
         self._btn_hvh.rect.y = y_next + 16
-        self._btn_tracking.rect.y = y_next + 16
         self._btn_import.rect.y = y_next + 82
         y_next += 16 + 48 + 108
 
-        if self._mode == GameMode.HUMAN_VS_AI and not self._tracking_mode:
+        if self._mode == GameMode.HUMAN_VS_AI:
             self._btn_white.rect.y = y_next + 16
             self._btn_black.rect.y = y_next + 16
             y_next += 16 + 42 + 26
@@ -188,10 +183,9 @@ class MenuScreen:
     def _sync_button_selection(self):
         """Refleja el estado elegido incluso antes del siguiente renderizado."""
         self._btn_hvai.selected = (
-            not self._tracking_mode and self._mode == GameMode.HUMAN_VS_AI and self.engine_available
+            self._mode == GameMode.HUMAN_VS_AI and self.engine_available
         )
-        self._btn_hvh.selected = not self._tracking_mode and self._mode == GameMode.HUMAN_VS_HUMAN
-        self._btn_tracking.selected = self._tracking_mode
+        self._btn_hvh.selected = self._mode == GameMode.HUMAN_VS_HUMAN
         self._btn_import.selected = self._initial_fen() is not None
         self._btn_white.selected = self._color == chess.WHITE
         self._btn_black.selected = self._color == chess.BLACK
@@ -242,16 +236,12 @@ class MenuScreen:
             self._import_from_clipboard()
         elif self._btn_hvai.is_hovered(pos) and self.engine_available:
             self._mode = GameMode.HUMAN_VS_AI
-            self._tracking_mode = False
         elif self._btn_hvh.is_hovered(pos):
             self._mode = GameMode.HUMAN_VS_HUMAN
-            self._tracking_mode = False
-        elif self._btn_tracking.is_hovered(pos):
-            self._tracking_mode = True
-        elif (self._mode == GameMode.HUMAN_VS_AI and not self._tracking_mode
+        elif (self._mode == GameMode.HUMAN_VS_AI
               and self._btn_white.is_hovered(pos)):
             self._color = chess.WHITE
-        elif (self._mode == GameMode.HUMAN_VS_AI and not self._tracking_mode
+        elif (self._mode == GameMode.HUMAN_VS_AI
               and self._btn_black.is_hovered(pos)):
             self._color = chess.BLACK
         elif self._btn_ind_on.is_hovered(pos):
@@ -266,9 +256,8 @@ class MenuScreen:
                 show_ai_indicator=self._ai_indicator,
                 initial_fen=self._initial_fen(),
                 initial_flipped=(not self._import_white_bottom if self._initial_fen() else None),
-                tracking_mode=self._tracking_mode,
             )
-        elif self._mode == GameMode.HUMAN_VS_AI and not self._tracking_mode:
+        elif self._mode == GameMode.HUMAN_VS_AI:
             for i, btn in enumerate(self._btn_diffs):
                 if btn.is_hovered(pos):
                     self._diff_index = i
@@ -394,7 +383,6 @@ class MenuScreen:
             self.screen, self._btn_hvai.is_hovered(mp), disabled=not self.engine_available
         )
         self._btn_hvh.draw(self.screen,  self._btn_hvh.is_hovered(mp))
-        self._btn_tracking.draw(self.screen, self._btn_tracking.is_hovered(mp))
 
         self._btn_import.draw(self.screen, self._btn_import.is_hovered(mp))
         status = fm.small().render(
@@ -406,14 +394,14 @@ class MenuScreen:
         y_next += 16 + 48 + 108  # reserva para importar captura y estado
 
         # Color (solo H vs IA)
-        if self._mode == GameMode.HUMAN_VS_AI and not self._tracking_mode:
+        if self._mode == GameMode.HUMAN_VS_AI:
             self._label("JUGAR CON", cx, y_next)
             self._btn_white.draw(self.screen, self._btn_white.is_hovered(mp))
             self._btn_black.draw(self.screen, self._btn_black.is_hovered(mp))
             y_next += 16 + 42 + 26  # 316
 
         # Dificultad (solo H vs IA)
-        if self._mode == GameMode.HUMAN_VS_AI and not self._tracking_mode:
+        if self._mode == GameMode.HUMAN_VS_AI:
             self._label("DIFICULTAD DE LA IA", cx, y_next)
             for i, btn in enumerate(self._btn_diffs):
                 btn.draw(self.screen, btn.is_hovered(mp))

@@ -139,15 +139,3 @@ def test_preview_coordinates_and_pieces_match_selected_capture_orientation(monke
     assert menu._preview_square(0, 7) == chess.H8
     assert menu._preview_board().piece_at(chess.D1) == chess.Piece(chess.KING, chess.BLACK)
     menu._draw((0, 0))
-
-
-def test_tracking_mode_can_start_without_pasting_a_capture():
-    menu = MenuScreen(_screen(), engine_available=False)
-
-    menu._handle_click(menu._btn_tracking.rect.center)
-    assert menu._tracking_mode is True
-    result = menu._handle_click(menu._btn_play.rect.center)
-
-    assert result is not None
-    assert result.tracking_mode is True
-    assert result.initial_fen is None
