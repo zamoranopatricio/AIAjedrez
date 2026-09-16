@@ -18,10 +18,6 @@ from src.game_state import GameMode, GameState
 from src.menu import MenuScreen
 from src.analysis_screen import AnalysisScreen, _BackToMenu
 from src.live_tracking_screen import LiveTrackingScreen
-from src.training_screen import TrainingScreen
-from src.game_analysis import EvaluationHistory, MoveReview, review_move, summarize_game
-from src.history_navigation import HistoryNavigator
-from src.opening_book import detect_opening
 from src.windows_clickthrough import install_windows_clickthrough
 
 logging.basicConfig(
@@ -93,10 +89,6 @@ class ChessApp:
         self.gui:   BoardGUI  | None = None
         self.show_ai_indicator: bool = True
         self.show_blue_alternative: bool = True
-        self.evaluation_history = EvaluationHistory()
-        self.move_reviews: list[MoveReview] = []
-        self.history_navigator: HistoryNavigator | None = None
-        self._review_pending: dict | None = None
 
         # Variables de interacción
         self._dragging_piece: chess.Piece | None = None
@@ -122,9 +114,6 @@ class ChessApp:
             if result.tracking_mode:
                 self._run_tracking(result)
                 continue
-            if result.training_mode:
-                self._run_training()
-                continue
             self._start_game(result)
             self._game_loop()
 
@@ -136,11 +125,6 @@ class ChessApp:
             result.initial_fen,
             white_bottom=not bool(result.initial_flipped),
         ).run()
-
-    def _run_training(self) -> None:
-        """Reto de motor aislado: no modifica ninguna partida local."""
-        if self.engine.is_available():
-            TrainingScreen(self.screen, self.piece_images, self.engine).run()
 
     # ── Inicio de partida ──────────────────────────────────────────────────
 
@@ -169,10 +153,6 @@ class ChessApp:
         self._drag_pos       = (0, 0)
         self._ai_move_pending = False
         self._last_fen        = ""
-        self.evaluation_history = EvaluationHistory()
-        self.move_reviews = []
-        self.history_navigator = HistoryNavigator.from_game_state(self.state)
-        self._review_pending = None
 
         log.info(
             "Partida iniciada — Modo: %s | Dificultad: %s | Indicador IA: %s",
@@ -203,27 +183,22 @@ class ChessApp:
                     if ui_action == "menu":     return
                     if ui_action == "analysis": self._open_analysis(); continue
                     if ui_action:               continue  # otro botón manejado
-                if (not self.state.game_over and self.state.is_human_turn()
-                        and self._history_is_live()):
+                if not self.state.game_over and self.state.is_human_turn():
                     self._handle_mouse(event)
 
             # Solicitar análisis si cambió la posición
             self._maybe_request_analysis()
 
             # Mover IA si es su turno
-            if (not self.state.game_over and not self.state.is_human_turn()
-                    and self._history_is_live()):
+            if not self.state.game_over and not self.state.is_human_turn():
                 self._handle_ai_turn(dt)
 
             # Renderizar
-            display_board = self._display_board()
-            browsing_history = not self._history_is_live()
             self.gui.draw(
-                board=display_board,
-                selected_square=None if browsing_history else self.state.selected_square,
-                legal_targets=[] if browsing_history else self.state.legal_targets,
-                last_move=(display_board.peek() if browsing_history and display_board.move_stack
-                           else self.state.last_move),
+                board=self.state.board,
+                selected_square=self.state.selected_square,
+                legal_targets=self.state.legal_targets,
+                last_move=self.state.last_move,
                 best_move=self.engine.best_move if self.engine.is_available() else None,
                 alternative_move=self._blue_suggestion_move(),
                 score=self.engine.score if self.engine.is_available() else None,
@@ -236,16 +211,10 @@ class ChessApp:
                 show_blue_arrow_toggle=(self.state.mode == GameMode.HUMAN_VS_HUMAN),
                 blue_arrow_enabled=self.show_blue_alternative,
                 mouse_pos=mouse_pos,
-                evaluation_samples=[(sample.ply, sample.score_cp)
-                                    for sample in self.evaluation_history.samples],
-                opening_label=self._opening_label(),
-                history_index=self.history_navigator.active_index if self.history_navigator else None,
-                history_position_count=self.history_navigator.position_count if self.history_navigator else None,
             )
 
             if self.state.game_over:
-                self.gui.draw_game_over(self.state.result_text, mouse_pos,
-                                        summary=summarize_game(self.move_reviews))
+                self.gui.draw_game_over(self.state.result_text, mouse_pos)
 
             pygame.display.flip()
 
@@ -257,20 +226,6 @@ class ChessApp:
         Devuelve una cadena con la acción o None si no tocó ningún botón.
         """
         g = self.gui
-
-        # Navegar sólo cambia la vista: el GameState activo no se toca.
-        if self.history_navigator:
-            if g.btn_history_previous.collidepoint(pos):
-                self.history_navigator.previous(); self.state.deselect(); return "history"
-            if g.btn_history_next.collidepoint(pos):
-                self.history_navigator.next(); self.state.deselect(); return "history"
-            if g.btn_history_live.collidepoint(pos):
-                self.history_navigator.latest(); self.state.deselect(); return "history"
-            for move_index, rect in g.history_move_rects.items():
-                if rect.collidepoint(pos):
-                    self.history_navigator.go_to(move_index)
-                    self.state.deselect()
-                    return "history"
 
         # ── Botones del panel lateral (siempre visibles) ───────────────────
         if g.flip_btn_rect.collidepoint(pos):
@@ -293,8 +248,6 @@ class ChessApp:
                 self.engine.clear()
                 self._ai_move_pending = False
                 self._last_fen = ""
-                self._clear_analysis_history()
-                self._refresh_history_navigation()
             return "undo"
 
         if g.btn_save.collidepoint(pos):
@@ -306,8 +259,6 @@ class ChessApp:
             self.engine.clear()
             self._ai_move_pending = False
             self._last_fen = ""
-            self._clear_analysis_history()
-            self._refresh_history_navigation()
             return "restart"
 
         if g.btn_analysis.collidepoint(pos):
@@ -323,8 +274,6 @@ class ChessApp:
                 self.engine.clear()
                 self._ai_move_pending = False
                 self._last_fen = ""
-                self._clear_analysis_history()
-                self._refresh_history_navigation()
                 return "restart"
             if g.go_btn_analysis.collidepoint(pos):
                 return "analysis"
@@ -403,22 +352,9 @@ class ChessApp:
     # ── Post-movimiento ────────────────────────────────────────────────────
 
     def _on_move_made(self):
-        # Guardar la evaluación disponible antes de limpiar el motor. Cuando
-        # llegue el análisis de la nueva posición se clasificará la jugada.
-        played = self.state.last_move
-        previous = self.state._snapshots[-1] if self.state._snapshots else None
-        if played is not None and previous is not None:
-            best = self.engine.best_move if self.engine.is_available() else None
-            best_san = previous.san(best) if best in previous.legal_moves else None
-            self._review_pending = {
-                "ply": len(self.state.san_history), "san": self.state.san_history[-1],
-                "mover": previous.turn, "played": played, "best": best,
-                "best_san": best_san, "before": self._score_to_cp(self.engine.score),
-            }
         self._ai_move_pending = False
         self.engine.clear()
         self._last_fen = ""   # forzar nueva solicitud de análisis
-        self._refresh_history_navigation()
 
     # ── Análisis continuo ──────────────────────────────────────────────────
 
@@ -429,18 +365,6 @@ class ChessApp:
         if fen != self._last_fen and not self.engine.is_analysing:
             self._last_fen = fen
             self.engine.request_analysis(self.state.board)
-            return
-        if self._review_pending and not self.engine.is_analysing and self.engine.score is not None:
-            pending = self._review_pending
-            review = review_move(
-                pending["ply"], pending["san"], pending["before"],
-                self._score_to_cp(self.engine.score), pending["mover"],
-                played_move=pending["played"], best_move=pending["best"],
-                best_san=pending["best_san"],
-            )
-            self.move_reviews.append(review)
-            self.evaluation_history.record(pending["san"], self._score_to_cp(self.engine.score))
-            self._review_pending = None
 
     def _blue_suggestion_move(self) -> chess.Move | None:
         """Alternativa de Stockfish visible solo en la partida local entre humanos."""
@@ -465,8 +389,6 @@ class ChessApp:
             self.engine.clear()
             self._ai_move_pending = False
             self._last_fen = ""
-            self._clear_analysis_history()
-            self._refresh_history_navigation()
         if key == pygame.K_s:
             path = self.state.save_pgn(cfg.SAVES_DIR)
             log.info("PGN guardado: %s", path)
@@ -484,8 +406,6 @@ class ChessApp:
                 self.engine.clear()
                 self._ai_move_pending = False
                 self._last_fen = ""
-                self._clear_analysis_history()
-                self._refresh_history_navigation()
                 log.info("Jugada deshecha.")
         if key == pygame.K_a:
             return "analysis"
@@ -498,40 +418,6 @@ class ChessApp:
             return "Humano vs Humano"
         color_str = "Blancas" if self.state.human_color == chess.WHITE else "Negras"
         return f"Humano ({color_str}) vs IA"
-
-    def _refresh_history_navigation(self) -> None:
-        self.history_navigator = HistoryNavigator.from_game_state(self.state)
-
-    def _clear_analysis_history(self) -> None:
-        """Evita que una curva o resumen incluya jugadas que se deshicieron."""
-        self.evaluation_history = EvaluationHistory()
-        self.move_reviews = []
-        self._review_pending = None
-
-    def _history_is_live(self) -> bool:
-        return self.history_navigator is None or (
-            self.history_navigator.active_index == self.history_navigator.position_count - 1
-        )
-
-    def _display_board(self) -> chess.Board:
-        if self.history_navigator and not self._history_is_live():
-            return self.history_navigator.view_board
-        return self.state.board
-
-    def _opening_label(self) -> str | None:
-        opening = detect_opening(self.state.moves_played)
-        return f"{opening.name} ({opening.eco})" if opening else None
-
-    @staticmethod
-    def _score_to_cp(score) -> int:
-        if score is None:
-            return 0
-        try:
-            if score.is_mate():
-                return 100000 if score.mate() > 0 else -100000
-            return score.score() or 0
-        except Exception:
-            return 0
 
     def _open_analysis(self):
         """Abre la pantalla de análisis post-partida."""

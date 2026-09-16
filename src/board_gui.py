@@ -133,11 +133,6 @@ class BoardGUI:
         self.flip_btn_rect        : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_toggle_indicator : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_toggle_blue_arrow: pygame.Rect = pygame.Rect(0, 0, 0, 0)
-        self.btn_history_previous  : pygame.Rect = pygame.Rect(0, 0, 0, 0)
-        self.btn_history_next      : pygame.Rect = pygame.Rect(0, 0, 0, 0)
-        self.btn_history_live      : pygame.Rect = pygame.Rect(0, 0, 0, 0)
-        # Índice de jugada (1-based) -> rect clickeable del historial visible.
-        self.history_move_rects: dict[int, pygame.Rect] = {}
         self.btn_undo             : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_save             : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_restart          : pygame.Rect = pygame.Rect(0, 0, 0, 0)
@@ -175,10 +170,6 @@ class BoardGUI:
         show_blue_arrow_toggle: bool = False,
         blue_arrow_enabled: bool = False,
         mouse_pos: tuple[int, int] = (0, 0),
-        evaluation_samples: list[tuple[int, int]] | tuple[tuple[int, int], ...] = (),
-        opening_label: str | None = None,
-        history_index: int | None = None,
-        history_position_count: int | None = None,
     ):
         self.screen.fill(cfg.C_BG)
         self._draw_board_squares(board, selected_square, legal_targets, last_move)
@@ -190,16 +181,15 @@ class BoardGUI:
         self._draw_side_panel(
             board, san_history, mode_label, engine_available, score,
             show_ai_indicator, show_blue_arrow_toggle, blue_arrow_enabled, mouse_pos,
-            evaluation_samples, opening_label, history_index, history_position_count,
         )
 
-    def draw_game_over(self, result_text: str, mouse_pos: tuple = (0, 0), summary=None):
+    def draw_game_over(self, result_text: str, mouse_pos: tuple = (0, 0)):
         """Overlay semitransparente de fin de partida con botones clickeables."""
         overlay = pygame.Surface((cfg.WINDOW_WIDTH, cfg.WINDOW_HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 175))
         self.screen.blit(overlay, (0, 0))
 
-        box_w, box_h = 520, (310 if summary and summary.reviews else 230)
+        box_w, box_h = 520, 230
         bx = (cfg.WINDOW_WIDTH  - box_w) // 2
         by = (cfg.WINDOW_HEIGHT - box_h) // 2
         box_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
@@ -213,23 +203,12 @@ class BoardGUI:
         t2 = fm.medium().render(result_text, True, cfg.C_TEXT_ACCENT)
         self.screen.blit(t2, t2.get_rect(center=(cx, by + 92)))
 
-        if summary and summary.reviews:
-            counts = (f"Mejores: {len(summary.best_moves)}   Buenas: {len(summary.good_moves)}   "
-                      f"Errores: {len(summary.errors)}   Blunders: {len(summary.blunders)}")
-            info = fm.small(bold=True).render("RESUMEN DE ANÁLISIS", True, cfg.C_TEXT_DIM)
-            self.screen.blit(info, info.get_rect(center=(cx, by + 124)))
-            text = fm.small().render(counts, True, cfg.C_TEXT)
-            self.screen.blit(text, text.get_rect(center=(cx, by + 147)))
-            noteworthy = (summary.blunders or summary.errors or summary.best_moves or summary.good_moves)[0]
-            detail = fm.small().render(f"{noteworthy.san}: {noteworthy.explanation}", True, cfg.C_TEXT_ACCENT)
-            self.screen.blit(detail, detail.get_rect(center=(cx, by + 171)))
-
         # Tres botones de acción
         bw, bh = 148, 40
         gap = 12
         total_w = bw * 3 + gap * 2
         bx0 = cx - total_w // 2
-        btn_y = by + box_h - 68
+        btn_y = by + 162
 
         self.go_btn_restart  = pygame.Rect(bx0,              btn_y, bw, bh)
         self.go_btn_analysis = pygame.Rect(bx0 + bw + gap,   btn_y, bw, bh)
@@ -436,10 +415,6 @@ class BoardGUI:
         show_blue_arrow_toggle: bool = False,
         blue_arrow_enabled: bool = False,
         mouse_pos: tuple[int, int] = (0, 0),
-        evaluation_samples: list[tuple[int, int]] | tuple[tuple[int, int], ...] = (),
-        opening_label: str | None = None,
-        history_index: int | None = None,
-        history_position_count: int | None = None,
     ):
         px = cfg.PANEL_X
         py = cfg.PANEL_Y
@@ -460,10 +435,6 @@ class BoardGUI:
         self.screen.blit(t, (px + pad, y)); y += 20
         t = fm.normal().render(mode_label, True, cfg.C_TEXT_ACCENT)
         self.screen.blit(t, (px + pad, y)); y += 28
-
-        if opening_label:
-            t = fm.small().render(opening_label, True, (190, 210, 140))
-            self.screen.blit(t, (px + pad, y)); y += 20
 
         # ── Turno ─────────────────────────────────────────────────────────
         turn_str = "Turno: Blancas" if board.turn == chess.WHITE else "Turno: Negras"
@@ -501,47 +472,27 @@ class BoardGUI:
             t = fm.normal().render("⚙ Stockfish no disponible", True, (180, 80, 80))
             self.screen.blit(t, (px + pad, y)); y += 28
 
-        if evaluation_samples:
-            y = self._draw_evaluation_chart(px + pad, y, pw - pad * 2, evaluation_samples)
-
         pygame.draw.line(self.screen, cfg.C_PANEL_BORDER, (px + pad, y), (px + pw - pad, y)); y += 12
 
         t = fm.small(bold=True).render("MOVIMIENTOS", True, cfg.C_TEXT_DIM)
         self.screen.blit(t, (px + pad, y)); y += 20
 
-        FOOTER_H = 282 if show_blue_arrow_toggle else 242
+        FOOTER_H = 240 if show_blue_arrow_toggle else 200
         max_visible = max(0, (py + ph - y - FOOTER_H) // 18)
         pairs_total = (len(san_history) + 1) // 2
         start_pair  = max(0, pairs_total - max_visible)
 
-        self.history_move_rects = {}
         for pair_idx in range(start_pair, pairs_total):
             i = pair_idx * 2
             w_san = san_history[i] if i < len(san_history) else ""
             b_san = san_history[i + 1] if i + 1 < len(san_history) else ""
             line  = f"{pair_idx + 1:>3}. {w_san:<10} {b_san}"
-            active = history_index is None or history_index in (i + 1, i + 2)
-            color = cfg.C_TEXT if active else cfg.C_TEXT_DIM
+            color = cfg.C_TEXT if pair_idx == pairs_total - 1 else cfg.C_TEXT_DIM
             t = fm.normal().render(line, True, color)
-            row_rect = pygame.Rect(px + pad, y, pw - pad * 2, 18)
-            if row_rect.collidepoint(mouse_pos):
-                pygame.draw.rect(self.screen, (45, 45, 75), row_rect, border_radius=3)
             self.screen.blit(t, (px + pad, y))
-            if i < len(san_history):
-                self.history_move_rects[i + 1] = pygame.Rect(
-                    row_rect.x, row_rect.y, row_rect.width // 2, row_rect.height
-                )
-            if i + 1 < len(san_history):
-                self.history_move_rects[i + 2] = pygame.Rect(
-                    row_rect.x + row_rect.width // 2, row_rect.y,
-                    row_rect.width - row_rect.width // 2, row_rect.height
-                )
             y += 18
 
         btn_start_y = py + ph - FOOTER_H
-        self._draw_history_controls(px, btn_start_y, pw, pad, mouse_pos,
-                                    history_index, history_position_count)
-        btn_start_y += 40
         flip_w = pw - pad * 2
         col_w  = (flip_w - 6) // 2
 
@@ -621,47 +572,3 @@ class BoardGUI:
         pygame.draw.rect(self.screen, (80, 80, 130), menu_rect, 1, border_radius=8)
         txt = fm.small(bold=True).render("Menu Principal", True, cfg.C_BTN_TEXT)
         self.screen.blit(txt, txt.get_rect(center=menu_rect.center))
-
-    def _draw_evaluation_chart(self, x: int, y: int, width: int,
-                               samples: list[tuple[int, int]] | tuple[tuple[int, int], ...]) -> int:
-        """Mini gráfico de evaluación; cada punto es ``(ply, centipeones)``."""
-        height = 54
-        rect = pygame.Rect(x, y, width, height)
-        pygame.draw.rect(self.screen, (18, 18, 34), rect, border_radius=5)
-        label = fm.small(bold=True).render("CURVA DE EVALUACIÓN", True, cfg.C_TEXT_DIM)
-        self.screen.blit(label, (x + 6, y + 4))
-        pygame.draw.line(self.screen, cfg.C_PANEL_BORDER, (x, y + height // 2),
-                         (x + width, y + height // 2), 1)
-        if len(samples) > 1:
-            limit = 400
-            points = []
-            for index, (_, score_cp) in enumerate(samples):
-                clipped = max(-limit, min(limit, score_cp))
-                px = x + round(width * index / (len(samples) - 1))
-                py = y + height // 2 - round((height // 2 - 3) * clipped / limit)
-                points.append((px, py))
-            pygame.draw.lines(self.screen, cfg.C_TEXT_ACCENT, False, points, 2)
-        pygame.draw.rect(self.screen, cfg.C_PANEL_BORDER, rect, 1, border_radius=5)
-        return y + height + 8
-
-    def _draw_history_controls(self, px: int, y: int, pw: int, pad: int,
-                               mouse_pos: tuple[int, int], history_index: int | None,
-                               history_position_count: int | None) -> None:
-        """Controles de navegación que sólo cambian la vista, nunca el juego."""
-        inner_w = pw - pad * 2
-        small_w = 52
-        self.btn_history_previous = pygame.Rect(px + pad, y, small_w, 30)
-        self.btn_history_next = pygame.Rect(px + pad + small_w + 5, y, small_w, 30)
-        self.btn_history_live = pygame.Rect(px + pad + 2 * (small_w + 5), y,
-                                            inner_w - 2 * (small_w + 5), 30)
-        browsing = history_index is not None and history_position_count is not None \
-            and history_index != history_position_count - 1
-        labels = ((self.btn_history_previous, "‹", cfg.C_BTN),
-                  (self.btn_history_next, "›", cfg.C_BTN),
-                  (self.btn_history_live, "Volver en vivo" if browsing else "En vivo", (45, 105, 75)))
-        for rect, label, base in labels:
-            color = tuple(min(255, c + 30) for c in base) if rect.collidepoint(mouse_pos) else base
-            pygame.draw.rect(self.screen, color, rect, border_radius=7)
-            pygame.draw.rect(self.screen, cfg.C_ACCENT, rect, 1, border_radius=7)
-            txt = fm.small(bold=True).render(label, True, cfg.C_BTN_TEXT)
-            self.screen.blit(txt, txt.get_rect(center=rect.center))
