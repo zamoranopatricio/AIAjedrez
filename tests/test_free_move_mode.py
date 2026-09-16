@@ -2,7 +2,6 @@ from types import SimpleNamespace
 
 import chess
 import pygame
-import pytest
 
 import config as cfg
 from main import ChessApp
@@ -34,31 +33,6 @@ def test_free_relocation_resets_history_and_transient_rights():
     assert state.moves_played == []
     assert state.last_move is None
     assert state.board.move_stack == []
-
-
-@pytest.mark.parametrize("side_to_move", [chess.WHITE, chess.BLACK])
-def test_free_relocation_keeps_the_selected_side_to_move(side_to_move):
-    state = GameState()
-    state.board.turn = side_to_move
-
-    state.relocate_piece_for_test(chess.A7, chess.A3)
-
-    assert state.board.turn is side_to_move
-
-
-def test_manual_turn_selection_resets_old_history_and_enables_that_side_moves():
-    state = GameState()
-    state.push_ai_move(chess.Move.from_uci("e2e4"))
-
-    changed = state.set_turn_for_test(chess.WHITE)
-
-    assert changed is True
-    assert state.board.turn is chess.WHITE
-    assert state.san_history == []
-    assert state.moves_played == []
-    assert state.board.move_stack == []
-    state.select(chess.G1)
-    assert chess.F3 in state.legal_targets
 
 
 def test_free_relocation_refuses_to_capture_a_king_without_mutating_game():
@@ -137,53 +111,3 @@ def test_board_panel_shows_test_mode_toggle_only_when_requested():
 
     gui.draw(**kwargs, show_test_mode_toggle=False)
     assert gui.btn_toggle_test_mode.width == 0
-
-
-def test_board_panel_shows_turn_controls_only_while_test_mode_is_active():
-    pygame.init()
-    gui = BoardGUI(pygame.Surface((cfg.WINDOW_WIDTH, cfg.WINDOW_HEIGHT)), _pieces())
-    kwargs = dict(
-        board=chess.Board(), selected_square=None, legal_targets=[], last_move=None,
-        best_move=None, score=None, dragging_piece=None, drag_pos=(0, 0),
-        san_history=[], mode_label="Humano vs Humano", engine_available=True,
-        show_test_mode_toggle=True,
-    )
-
-    gui.draw(**kwargs, test_mode_enabled=True, show_test_turn_controls=True)
-    assert gui.btn_set_white_turn.width > 0
-    assert gui.btn_set_black_turn.width > 0
-
-    gui.draw(**kwargs, test_mode_enabled=False, show_test_turn_controls=False)
-    assert gui.btn_set_white_turn.width == 0
-    assert gui.btn_set_black_turn.width == 0
-
-
-def test_test_mode_turn_buttons_set_either_side_and_reset_derived_data():
-    pygame.init()
-    gui = BoardGUI(pygame.Surface((cfg.WINDOW_WIDTH, cfg.WINDOW_HEIGHT)), _pieces())
-    gui.draw(
-        board=chess.Board(), selected_square=None, legal_targets=[], last_move=None,
-        best_move=None, score=None, dragging_piece=None, drag_pos=(0, 0),
-        san_history=[], mode_label="Humano vs Humano", engine_available=True,
-        show_test_mode_toggle=True, test_mode_enabled=True,
-        show_test_turn_controls=True,
-    )
-    app = ChessApp.__new__(ChessApp)
-    app.state = GameState(mode=GameMode.HUMAN_VS_HUMAN)
-    app.gui = gui
-    app.history_navigator = None
-    app.show_ai_indicator = True
-    app.show_blue_alternative = True
-    app.test_mode_enabled = True
-    app._test_move_from = None
-    app._on_test_position_edited = lambda: setattr(
-        app, "edit_count", getattr(app, "edit_count", 0) + 1
-    )
-
-    assert app._handle_ui_click(gui.btn_set_black_turn.center) == "set_turn_black"
-    assert app.state.board.turn is chess.BLACK
-    assert app.edit_count == 1
-
-    assert app._handle_ui_click(gui.btn_set_white_turn.center) == "set_turn_white"
-    assert app.state.board.turn is chess.WHITE
-    assert app.edit_count == 2

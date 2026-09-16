@@ -112,32 +112,21 @@ def detect_position_from_image(image: Image.Image, assets_dir: Path) -> str:
     normalized = board.resize((640, 640), Image.Resampling.LANCZOS)
     templates = _load_templates(assets_dir, theme)
 
-    candidates_by_square: dict[str, tuple[tuple[str, float], ...]] = {}
+    rows: list[str] = []
     for rank_from_top in range(8):
+        row: list[str] = []
+        empty = 0
         for file_index in range(8):
             cell = normalized.crop((file_index * 80, rank_from_top * 80,
                                     (file_index + 1) * 80, (rank_from_top + 1) * 80))
-            candidates = _piece_candidates(cell, templates, light, dark)
-            _name, overlap = candidates[0]
+            name, overlap = _best_piece(cell, templates, light, dark)
             if overlap < _MIN_PIECE_OVERLAP:
-                continue
-            candidates_by_square[f"{rank_from_top}:{file_index}"] = candidates
-
-    selected_pieces = _choose_consistent_pieces(candidates_by_square)
-
-    rows: list[str] = []
-    for rank_from_top in range(8):
-        row = []
-        empty = 0
-        for file_index in range(8):
-            square = f"{rank_from_top}:{file_index}"
-            if square not in selected_pieces:
                 empty += 1
                 continue
             if empty:
                 row.append(str(empty))
                 empty = 0
-            row.append(_fen_symbol(selected_pieces[square]))
+            row.append(_fen_symbol(name))
         if empty:
             row.append(str(empty))
         rows.append("".join(row))
@@ -246,26 +235,21 @@ def _load_templates(assets_dir: Path, theme: str = PIECE_THEME) -> dict[str, Ima
     return templates
 
 
-def _piece_candidates(
+def _best_piece(
     cell: Image.Image,
     templates: dict[str, Image.Image],
     light: tuple[int, int, int],
     dark: tuple[int, int, int],
-) -> tuple[tuple[str, float], ...]:
-    """Clasifica una casilla sin perder las alternativas cercanas.
-
-    Los reyes y las damas pueden solaparse bastante al reducir una captura.
-    Conservar el segundo candidato permite aplicar la restricción de un solo
-    rey por color a toda la posición, en lugar de descartar la captura.
-    """
+) -> tuple[str, float]:
     foreground, bright_pixels = _foreground_mask(cell.convert("RGB"), light, dark)
-    overlaps: dict[str, float] = {}
+    best_name = ""
+    best_overlap = 0.0
     for name, template in templates.items():
         intersection = ImageChops.multiply(foreground, template).histogram()[255]
         union = ImageChops.lighter(foreground, template).histogram()[255]
         overlap = intersection / union if union else 0.0
-        piece = name[1]
-        overlaps[piece] = max(overlap, overlaps.get(piece, 0.0))
+        if overlap > best_overlap:
+            best_name, best_overlap = name, overlap
     # El color se determina de la captura, no de la plantilla: las siluetas
     # blanca/negra son casi iguales en cburnett pero el tono de la pieza no.
     # Las piezas negras cburnett contienen pequeños brillos, pero no ocupan
@@ -275,68 +259,7 @@ def _piece_candidates(
     # debe quedar por encima de ese brillo (~550 px) y por debajo de una
     # pieza blanca incluso en una casilla oscura (~950 px).
     color = "w" if bright_pixels >= _MIN_WHITE_BRIGHT_PIXELS else "b"
-    return tuple(sorted(
-        ((color + piece, overlap) for piece, overlap in overlaps.items()),
-        key=lambda candidate: candidate[1],
-        reverse=True,
-    ))
-
-
-def _choose_consistent_pieces(
-    candidates_by_square: dict[str, tuple[tuple[str, float], ...]],
-) -> dict[str, str]:
-    """Elige las piezas más probables con exactamente un rey por color.
-
-    La evidencia visual sigue siendo la prioridad. Solo se cambia una
-    clasificación cuando otra alternativa de la *misma* casilla permite una
-    posición materialmente coherente y tiene mejor confianza global.
-    """
-    chosen = {square: candidates[0][0] for square, candidates in candidates_by_square.items()}
-
-    for color, side in (("w", "blanco"), ("b", "negro")):
-        color_squares = {
-            square: candidates
-            for square, candidates in candidates_by_square.items()
-            if candidates[0][0].startswith(color)
-        }
-        king_name = f"{color}K"
-        king_squares = [
-            square for square, candidates in color_squares.items()
-            if any(name == king_name for name, _score in candidates)
-        ]
-        if not king_squares:
-            raise PositionImportError(
-                f"No se pudo identificar con seguridad el rey {side}. "
-                "Recorta la captura para que incluya el tablero completo y sin superposiciones."
-            )
-
-        alternatives: list[tuple[float, dict[str, str]]] = []
-        for king_square in king_squares:
-            selection: dict[str, str] = {}
-            confidence = 0.0
-            for square, candidates in color_squares.items():
-                allowed = [
-                    candidate for candidate in candidates
-                    if (candidate[0] == king_name) == (square == king_square)
-                ]
-                if not allowed:
-                    break
-                name, score = max(allowed, key=lambda candidate: candidate[1])
-                selection[square] = name
-                confidence += score
-            else:
-                alternatives.append((confidence, selection))
-
-        if not alternatives:
-            raise PositionImportError(
-                f"No se pudo identificar con seguridad el rey {side}. "
-                "La imagen contiene piezas superpuestas o demasiado borrosas."
-            )
-
-        _confidence, selection = max(alternatives, key=lambda alternative: alternative[0])
-        chosen.update(selection)
-
-    return chosen
+    return color + best_name[1:], best_overlap
 
 
 def _foreground_mask(

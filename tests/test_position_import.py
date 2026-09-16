@@ -116,42 +116,6 @@ def test_allows_two_queens_as_a_possible_promotion_and_explains_it():
     assert warnings == ("Se detectaron dos damas blancas; puede ser una promoción válida.",)
 
 
-def test_reclassifies_an_ambiguous_second_king_as_its_next_best_piece():
-    """La silueta de una dama no debe invalidar la captura si roza la de rey."""
-    from src.position_import import _choose_consistent_pieces
-
-    chosen = _choose_consistent_pieces({
-        "e1": (("wK", 0.98), ("wQ", 0.10)),
-        "d1": (("wK", 0.81), ("wQ", 0.80)),
-        "e8": (("bK", 0.99), ("bQ", 0.12)),
-    })
-
-    assert chosen == {"e1": "wK", "d1": "wQ", "e8": "bK"}
-
-
-def test_reports_when_no_candidate_can_supply_a_missing_king():
-    from src.position_import import PositionImportError, _choose_consistent_pieces
-
-    with pytest.raises(PositionImportError, match="identificar con seguridad.*rey blanco"):
-        _choose_consistent_pieces({
-            "d1": (("wQ", 0.91), ("wR", 0.70)),
-            "e8": (("bK", 0.99), ("bQ", 0.12)),
-        })
-
-
-def test_preserves_a_valid_promoted_second_queen():
-    from src.position_import import _choose_consistent_pieces
-
-    chosen = _choose_consistent_pieces({
-        "e1": (("wK", 0.99), ("wQ", 0.18)),
-        "d1": (("wQ", 0.96), ("wK", 0.42)),
-        "a8": (("wQ", 0.95), ("wR", 0.61)),
-        "e8": (("bK", 0.99), ("bQ", 0.16)),
-    })
-
-    assert [piece for piece in chosen.values() if piece == "wQ"] == ["wQ", "wQ"]
-
-
 def test_check_legality_is_validated_after_the_user_chooses_the_turn():
     from src.position_import import PositionImportError, validate_initial_fen
 

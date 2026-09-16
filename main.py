@@ -254,10 +254,6 @@ class ChessApp:
                 blue_arrow_enabled=self.show_blue_alternative,
                 show_test_mode_toggle=(self.state.mode == GameMode.HUMAN_VS_HUMAN),
                 test_mode_enabled=self.test_mode_enabled,
-                show_test_turn_controls=(
-                    self.state.mode == GameMode.HUMAN_VS_HUMAN
-                    and self.test_mode_enabled
-                ),
                 mouse_pos=mouse_pos,
                 evaluation_samples=[(sample.ply, sample.score_cp)
                                     for sample in self.evaluation_history.samples],
@@ -316,18 +312,6 @@ class ChessApp:
             self._test_move_from = None
             self.state.deselect()
             return "toggle_test_mode"
-
-        if (self.state.mode == GameMode.HUMAN_VS_HUMAN
-                and self.test_mode_enabled
-                and g.btn_set_white_turn.collidepoint(pos)):
-            self._set_turn_for_test(chess.WHITE)
-            return "set_turn_white"
-
-        if (self.state.mode == GameMode.HUMAN_VS_HUMAN
-                and self.test_mode_enabled
-                and g.btn_set_black_turn.collidepoint(pos)):
-            self._set_turn_for_test(chess.BLACK)
-            return "set_turn_black"
 
         if g.btn_undo.collidepoint(pos):
             double = (self.state.mode == GameMode.HUMAN_VS_AI)
@@ -492,12 +476,6 @@ class ChessApp:
         self._last_fen = ""
         self._clear_analysis_history()
         self._refresh_history_navigation()
-
-    def _set_turn_for_test(self, color: chess.Color) -> None:
-        """Aplica el turno elegido manualmente en el modo de pruebas local."""
-        if self.state.set_turn_for_test(color):
-            self._test_move_from = None
-            self._on_test_position_edited()
 
     # ── Análisis continuo ──────────────────────────────────────────────────
 

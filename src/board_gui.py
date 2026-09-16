@@ -136,8 +136,6 @@ class BoardGUI:
         self.btn_toggle_indicator : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_toggle_blue_arrow: pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_toggle_test_mode : pygame.Rect = pygame.Rect(0, 0, 0, 0)
-        self.btn_set_white_turn  : pygame.Rect = pygame.Rect(0, 0, 0, 0)
-        self.btn_set_black_turn  : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_history_previous  : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_history_next      : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_history_live      : pygame.Rect = pygame.Rect(0, 0, 0, 0)
@@ -181,7 +179,6 @@ class BoardGUI:
         blue_arrow_enabled: bool = False,
         show_test_mode_toggle: bool = False,
         test_mode_enabled: bool = False,
-        show_test_turn_controls: bool = False,
         mouse_pos: tuple[int, int] = (0, 0),
         evaluation_samples: list[tuple[int, int]] | tuple[tuple[int, int], ...] = (),
         opening_label: str | None = None,
@@ -198,7 +195,7 @@ class BoardGUI:
         self._draw_side_panel(
             board, san_history, mode_label, engine_available, score,
             show_ai_indicator, show_blue_arrow_toggle, blue_arrow_enabled,
-            show_test_mode_toggle, test_mode_enabled, show_test_turn_controls, mouse_pos,
+            show_test_mode_toggle, test_mode_enabled, mouse_pos,
             evaluation_samples, opening_label, history_index, history_position_count,
         )
 
@@ -448,7 +445,6 @@ class BoardGUI:
         blue_arrow_enabled: bool = False,
         show_test_mode_toggle: bool = False,
         test_mode_enabled: bool = False,
-        show_test_turn_controls: bool = False,
         mouse_pos: tuple[int, int] = (0, 0),
         evaluation_samples: list[tuple[int, int]] | tuple[tuple[int, int], ...] = (),
         opening_label: str | None = None,
@@ -523,11 +519,7 @@ class BoardGUI:
         t = fm.small(bold=True).render("MOVIMIENTOS", True, cfg.C_TEXT_DIM)
         self.screen.blit(t, (px + pad, y)); y += 20
 
-        toggle_rows = (
-            int(show_blue_arrow_toggle)
-            + int(show_test_mode_toggle)
-            + int(show_test_turn_controls)
-        )
+        toggle_rows = int(show_blue_arrow_toggle) + int(show_test_mode_toggle)
         FOOTER_H = 242 + 40 * toggle_rows
         max_visible = max(0, (py + ph - y - FOOTER_H) // 18)
         pairs_total = (len(san_history) + 1) // 2
@@ -612,27 +604,6 @@ class BoardGUI:
             self.screen.blit(txt, txt.get_rect(center=self.btn_toggle_test_mode.center))
         else:
             self.btn_toggle_test_mode = pygame.Rect(0, 0, 0, 0)
-
-        turn_row_y = test_row_y + 40
-        if show_test_turn_controls:
-            self.btn_set_white_turn = pygame.Rect(px + pad, turn_row_y, col_w, 32)
-            self.btn_set_black_turn = pygame.Rect(
-                px + pad + col_w + 6, turn_row_y, col_w, 32
-            )
-            for rect, color, label, active in (
-                (self.btn_set_white_turn, (75, 105, 160), "Mueven blancas", board.turn == chess.WHITE),
-                (self.btn_set_black_turn, (70, 70, 90), "Mueven negras", board.turn == chess.BLACK),
-            ):
-                draw_color = tuple(min(255, channel + 30) for channel in color) \
-                    if rect.collidepoint(mouse_pos) else color
-                pygame.draw.rect(self.screen, draw_color, rect, border_radius=8)
-                border = cfg.C_ACCENT if active else (120, 120, 155)
-                pygame.draw.rect(self.screen, border, rect, 2 if active else 1, border_radius=8)
-                txt = fm.small(bold=True).render(label, True, cfg.C_BTN_TEXT)
-                self.screen.blit(txt, txt.get_rect(center=rect.center))
-        else:
-            self.btn_set_white_turn = pygame.Rect(0, 0, 0, 0)
-            self.btn_set_black_turn = pygame.Rect(0, 0, 0, 0)
 
         orient_y = btn_start_y + 41 + 40 * toggle_rows
         orient_label = "Vista: Negras abajo" if self.flipped else "Vista: Blancas abajo"

@@ -151,13 +151,8 @@ class GameState:
         if piece is None or (target is not None and target.piece_type == chess.KING):
             return None
 
-        # Las ediciones libres no son jugadas: conservar explícitamente el
-        # turno evita que mover una pieza negra cambie el turno a blancas (o
-        # viceversa) al reconstruir los metadatos de la posición.
-        turn_before_edit = self.board.turn
         self.board.remove_piece_at(from_square)
         self.board.set_piece_at(to_square, piece)
-        self.board.turn = turn_before_edit
         self.board.castling_rights = chess.BB_EMPTY
         self.board.ep_square = None
         self.board.halfmove_clock = 0
@@ -170,31 +165,6 @@ class GameState:
         self.result_text = ""
         self.deselect()
         return piece
-
-    def set_turn_for_test(self, color: chess.Color) -> bool:
-        """Elige quién mueve en una posición armada en modo prueba.
-
-        Cambiar el turno manualmente no representa una jugada legal, por lo
-        que se descarta el historial asociado y datos temporales (por ejemplo,
-        captura al paso). El tablero y sus piezas permanecen intactos.
-        """
-        if self.board.turn == color:
-            self.deselect()
-            return False
-
-        self.board.turn = color
-        self.board.ep_square = None
-        self.board.halfmove_clock = 0
-        self.board.fullmove_number = 1
-        self.board.clear_stack()
-        self.last_move = None
-        self.san_history = []
-        self.moves_played = []
-        self._snapshots = []
-        self.game_over = False
-        self.result_text = ""
-        self.deselect()
-        return True
 
     def reset(
         self,
