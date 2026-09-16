@@ -98,7 +98,6 @@ class ChessApp:
         self.gui:   BoardGUI  | None = None
         self.show_ai_indicator: bool = True
         self.show_blue_alternative: bool = True
-        self.test_mode_enabled: bool = False
         self.evaluation_history = EvaluationHistory()
         self.move_reviews: list[MoveReview] = []
         self.history_navigator: HistoryNavigator | None = None
@@ -108,7 +107,6 @@ class ChessApp:
         self._dragging_piece: chess.Piece | None = None
         self._drag_from: int | None = None
         self._drag_pos  = (0, 0)
-        self._test_move_from: int | None = None
 
         # Control de solicitud de análisis
         self._analysis_requested_for: chess.Zobrist | None = None   # type: ignore
@@ -167,7 +165,6 @@ class ChessApp:
             initial_fen=result.initial_fen,
         )
         self.show_ai_indicator = result.show_ai_indicator
-        self.test_mode_enabled = False
         self.gui   = BoardGUI(
             screen=self.screen,
             piece_images=self.piece_images,
@@ -183,7 +180,6 @@ class ChessApp:
         self._dragging_piece = None
         self._drag_from      = None
         self._drag_pos       = (0, 0)
-        self._test_move_from = None
         self._ai_move_pending = False
         self._last_fen        = ""
         self.evaluation_history = EvaluationHistory()
@@ -252,8 +248,6 @@ class ChessApp:
                 show_ai_indicator=self.show_ai_indicator,
                 show_blue_arrow_toggle=(self.state.mode == GameMode.HUMAN_VS_HUMAN),
                 blue_arrow_enabled=self.show_blue_alternative,
-                show_test_mode_toggle=(self.state.mode == GameMode.HUMAN_VS_HUMAN),
-                test_mode_enabled=self.test_mode_enabled,
                 mouse_pos=mouse_pos,
                 evaluation_samples=[(sample.ply, sample.score_cp)
                                     for sample in self.evaluation_history.samples],
@@ -306,13 +300,6 @@ class ChessApp:
             self.show_blue_alternative = not self.show_blue_alternative
             return "toggle_blue_arrow"
 
-        if (self.state.mode == GameMode.HUMAN_VS_HUMAN
-                and g.btn_toggle_test_mode.collidepoint(pos)):
-            self.test_mode_enabled = not self.test_mode_enabled
-            self._test_move_from = None
-            self.state.deselect()
-            return "toggle_test_mode"
-
         if g.btn_undo.collidepoint(pos):
             double = (self.state.mode == GameMode.HUMAN_VS_AI)
             if self.state.undo(double=double):
@@ -364,30 +351,7 @@ class ChessApp:
     def _handle_mouse(self, event: pygame.event.Event):
         flipped = self.gui.flipped
 
-        if (event.type == pygame.MOUSEBUTTONDOWN and event.button == 3
-                and self.state.mode == GameMode.HUMAN_VS_HUMAN
-                and self.test_mode_enabled):
-            sq = pixel_to_square(*event.pos, flipped)
-            if sq is None:
-                self._test_move_from = None
-                self.state.deselect()
-                return
-            if getattr(self, "_test_move_from", None) is None:
-                if self.state.board.piece_at(sq) is not None:
-                    # Reutiliza el highlight de selección, sin destinos legales:
-                    # en modo prueba cualquier casilla será un destino válido.
-                    self.state.deselect()
-                    self._test_move_from = sq
-                    self.state.selected_square = sq
-                    self.state.legal_targets = []
-                return
-            if self.state.relocate_piece_for_test(self._test_move_from, sq):
-                self._test_move_from = None
-                self._on_test_position_edited()
-            return
-
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            self._test_move_from = None
             sq = pixel_to_square(*event.pos, flipped)
             if sq is None:
                 self.state.deselect(); return
@@ -467,14 +431,6 @@ class ChessApp:
         self._ai_move_pending = False
         self.engine.clear()
         self._last_fen = ""   # forzar nueva solicitud de análisis
-        self._refresh_history_navigation()
-
-    def _on_test_position_edited(self) -> None:
-        """Invalida datos derivados después de cambiar el tablero manualmente."""
-        self._ai_move_pending = False
-        self.engine.clear()
-        self._last_fen = ""
-        self._clear_analysis_history()
         self._refresh_history_navigation()
 
     # ── Análisis continuo ──────────────────────────────────────────────────

@@ -135,37 +135,6 @@ class GameState:
         log.warning("Movimiento de IA ilegal: %s", move)
         return None
 
-    def relocate_piece_for_test(self, from_square: int, to_square: int) -> chess.Piece | None:
-        """Reubica una pieza para armar una posición de prueba local.
-
-        Esta edición deliberadamente no valida turnos ni movimientos legales. No
-        permite quitar un rey: así se mantiene, como mínimo, un rey de cada
-        color y las APIs de ``python-chess`` siguen teniendo una posición
-        analizable. Al editar se descarta el historial, enroques y captura al
-        paso, porque ya no representan la posición construida manualmente.
-        """
-        if from_square == to_square:
-            return None
-        piece = self.board.piece_at(from_square)
-        target = self.board.piece_at(to_square)
-        if piece is None or (target is not None and target.piece_type == chess.KING):
-            return None
-
-        self.board.remove_piece_at(from_square)
-        self.board.set_piece_at(to_square, piece)
-        self.board.castling_rights = chess.BB_EMPTY
-        self.board.ep_square = None
-        self.board.halfmove_clock = 0
-        self.board.fullmove_number = 1
-        self.last_move = None
-        self.san_history = []
-        self.moves_played = []
-        self._snapshots = []
-        self.game_over = False
-        self.result_text = ""
-        self.deselect()
-        return piece
-
     def reset(
         self,
         mode: GameMode | None = None,

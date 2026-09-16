@@ -135,7 +135,6 @@ class BoardGUI:
         self.flip_btn_rect        : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_toggle_indicator : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_toggle_blue_arrow: pygame.Rect = pygame.Rect(0, 0, 0, 0)
-        self.btn_toggle_test_mode : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_history_previous  : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_history_next      : pygame.Rect = pygame.Rect(0, 0, 0, 0)
         self.btn_history_live      : pygame.Rect = pygame.Rect(0, 0, 0, 0)
@@ -177,8 +176,6 @@ class BoardGUI:
         alternative_move: Optional[chess.Move] = None,
         show_blue_arrow_toggle: bool = False,
         blue_arrow_enabled: bool = False,
-        show_test_mode_toggle: bool = False,
-        test_mode_enabled: bool = False,
         mouse_pos: tuple[int, int] = (0, 0),
         evaluation_samples: list[tuple[int, int]] | tuple[tuple[int, int], ...] = (),
         opening_label: str | None = None,
@@ -194,8 +191,7 @@ class BoardGUI:
         self._draw_eval_bar(score, board, show_ai_indicator)
         self._draw_side_panel(
             board, san_history, mode_label, engine_available, score,
-            show_ai_indicator, show_blue_arrow_toggle, blue_arrow_enabled,
-            show_test_mode_toggle, test_mode_enabled, mouse_pos,
+            show_ai_indicator, show_blue_arrow_toggle, blue_arrow_enabled, mouse_pos,
             evaluation_samples, opening_label, history_index, history_position_count,
         )
 
@@ -443,8 +439,6 @@ class BoardGUI:
         show_ai_indicator: bool = True,
         show_blue_arrow_toggle: bool = False,
         blue_arrow_enabled: bool = False,
-        show_test_mode_toggle: bool = False,
-        test_mode_enabled: bool = False,
         mouse_pos: tuple[int, int] = (0, 0),
         evaluation_samples: list[tuple[int, int]] | tuple[tuple[int, int], ...] = (),
         opening_label: str | None = None,
@@ -519,8 +513,7 @@ class BoardGUI:
         t = fm.small(bold=True).render("MOVIMIENTOS", True, cfg.C_TEXT_DIM)
         self.screen.blit(t, (px + pad, y)); y += 20
 
-        toggle_rows = int(show_blue_arrow_toggle) + int(show_test_mode_toggle)
-        FOOTER_H = 242 + 40 * toggle_rows
+        FOOTER_H = 282 if show_blue_arrow_toggle else 242
         max_visible = max(0, (py + ph - y - FOOTER_H) // 18)
         pairs_total = (len(san_history) + 1) // 2
         start_pair  = max(0, pairs_total - max_visible)
@@ -588,30 +581,17 @@ class BoardGUI:
             blue_text = "Flecha azul: ON" if blue_arrow_enabled else "Flecha azul: OFF"
             txt = fm.small(bold=True).render(blue_text, True, cfg.C_BTN_TEXT)
             self.screen.blit(txt, txt.get_rect(center=self.btn_toggle_blue_arrow.center))
+            orient_y = blue_row_y + 41
         else:
             self.btn_toggle_blue_arrow = pygame.Rect(0, 0, 0, 0)
+            orient_y = btn_start_y + 41
 
-        test_row_y = btn_start_y + 40 + 40 * int(show_blue_arrow_toggle)
-        if show_test_mode_toggle:
-            self.btn_toggle_test_mode = pygame.Rect(px + pad, test_row_y, flip_w, 32)
-            hov_t = self.btn_toggle_test_mode.collidepoint(mouse_pos)
-            test_bg = (125, 80, 35) if test_mode_enabled else (55, 45, 75)
-            test_draw = tuple(min(255, c + 35) for c in test_bg) if hov_t else test_bg
-            pygame.draw.rect(self.screen, test_draw, self.btn_toggle_test_mode, border_radius=8)
-            pygame.draw.rect(self.screen, (230, 165, 70), self.btn_toggle_test_mode, 1, border_radius=8)
-            test_text = "Prueba ON: clic derecho" if test_mode_enabled else "Modo prueba: OFF"
-            txt = fm.small(bold=True).render(test_text, True, cfg.C_BTN_TEXT)
-            self.screen.blit(txt, txt.get_rect(center=self.btn_toggle_test_mode.center))
-        else:
-            self.btn_toggle_test_mode = pygame.Rect(0, 0, 0, 0)
-
-        orient_y = btn_start_y + 41 + 40 * toggle_rows
         orient_label = "Vista: Negras abajo" if self.flipped else "Vista: Blancas abajo"
         t_orient = fm.small().render(orient_label, True, cfg.C_TEXT_DIM)
         self.screen.blit(t_orient, t_orient.get_rect(center=(px + pw // 2, orient_y)))
 
         # Cuadrícula 2×2 de botones de acción
-        cell_y = btn_start_y + 52 + 40 * toggle_rows
+        cell_y = btn_start_y + (92 if show_blue_arrow_toggle else 52)
         cell_h = 32
         cell_gap = 6
 
