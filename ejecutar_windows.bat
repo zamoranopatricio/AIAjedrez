@@ -26,17 +26,17 @@ if not defined BOOTSTRAP_PY (
 )
 
 if not defined BOOTSTRAP_PY (
-    py -3 -c "import sys; assert sys.version_info[0] == 3; assert sys.version_info[1] in [10, 11, 12, 13]" >nul 2>&1
+    py -3 -c "import sys; sys.exit(0 if sys.version_info[:2] in ((3, 10), (3, 11), (3, 12), (3, 13)) else 1)" >nul 2>&1
     if !errorlevel! equ 0 set "BOOTSTRAP_PY=py -3"
 )
 
 if not defined BOOTSTRAP_PY (
-    python -c "import sys; assert sys.version_info[0] == 3; assert sys.version_info[1] in [10, 11, 12, 13]" >nul 2>&1
+    python -c "import sys; sys.exit(0 if sys.version_info[:2] in ((3, 10), (3, 11), (3, 12), (3, 13)) else 1)" >nul 2>&1
     if !errorlevel! equ 0 set "BOOTSTRAP_PY=python"
 )
 
 if not defined BOOTSTRAP_PY (
-    echo [ERROR] No se encontro una version compatible de Python 3.10 a 3.13.
+    echo [ERROR] No se encontro una version compatible de Python (3.10 a 3.13).
     echo Instala Python 3.13 desde https://www.python.org/downloads/
     echo Durante la instalacion, marca "Add Python to PATH".
     pause
@@ -44,7 +44,7 @@ if not defined BOOTSTRAP_PY (
 )
 
 if exist ".venv\Scripts\python.exe" (
-    .venv\Scripts\python.exe -c "import sys; assert sys.version_info[0] == 3; assert sys.version_info[1] in [10, 11, 12, 13]" >nul 2>&1
+    .venv\Scripts\python.exe -c "import sys; sys.exit(0 if sys.version_info[:2] in ((3, 10), (3, 11), (3, 12), (3, 13)) else 1)" >nul 2>&1
     if !errorlevel! neq 0 (
         echo El entorno .venv usa una version incompatible de Python. Recreandolo...
         rmdir /s /q ".venv"
